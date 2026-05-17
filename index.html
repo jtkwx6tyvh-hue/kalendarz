@@ -479,21 +479,15 @@
 
 </div><!-- /#app -->
 
-<script type="module">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
 window.onerror=function(msg,src,line,col,err){
   var d=document.getElementById('debug-bar');
   if(!d){d=document.createElement('div');d.id='debug-bar';d.style='position:fixed;bottom:0;left:0;right:0;background:#c00;color:#fff;font-size:12px;padding:6px 10px;z-index:99999;white-space:pre-wrap;max-height:40vh;overflow:auto';document.body.appendChild(d);}
   d.textContent+='ERR: '+msg+' | line:'+line+' col:'+col+'\n';
   return false;
 };
-window.onunhandledrejection=function(e){
-  var d=document.getElementById('debug-bar');
-  if(!d){d=document.createElement('div');d.id='debug-bar';d.style='position:fixed;bottom:0;left:0;right:0;background:#c00;color:#fff;font-size:12px;padding:6px 10px;z-index:99999;white-space:pre-wrap;max-height:40vh;overflow:auto';document.body.appendChild(d);}
-  d.textContent+='PROMISE ERR: '+(e.reason||e)+'\n';
-};
-
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getDatabase, ref, set, onValue } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyC5V3thWGZZB8VbUcvXYHYCswcH0mlhcZE",
@@ -502,18 +496,12 @@ const firebaseConfig = {
   projectId: "kalendarz-rodzinny-ab711",
   storageBucket: "kalendarz-rodzinny-ab711.firebasestorage.app",
   messagingSenderId: "205785330562",
-  appId: "1:205785330562:web:a8d2bd1429ccbba244d59b",
-  measurementId: "G-K30HFHDTR1"
+  appId: "1:205785330562:web:a8d2bd1429ccbba244d59b"
 };
 
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getDatabase(firebaseApp);
-const eventsRef = ref(db, 'events');
-
-// Expose to global scope for non-module script
-window._fbSet = (data) => set(eventsRef, data);
-window._fbOnValue = (cb) => onValue(eventsRef, cb);
-window._fbReady = true;
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const eventsRef = db.ref('events');
 </script>
 <script>
 /* ===== CONFIG ===== */
@@ -528,20 +516,15 @@ const DAY_FULL    = ['Poniedziałek','Wtorek','Środa','Czwartek','Piątek','Sob
 const MONTH_NAMES = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 const HOURS = Array.from({length:24},(_,i)=>i);
 
-let fbListenerActive = false;
-
 /* ===== FIREBASE STORAGE ===== */
 function saveEvents() {
   const obj = {};
   events.forEach(e => { obj[e.id] = e; });
-  if(window._fbSet) window._fbSet(obj).catch(err=>console.error('FB save',err));
+  eventsRef.set(obj).catch(err=>console.error('FB save',err));
 }
 
 function initFirebase() {
-  if(!window._fbOnValue){ setTimeout(initFirebase, 150); return; }
-  if(fbListenerActive) return;
-  fbListenerActive = true;
-  window._fbOnValue(snapshot => {
+  eventsRef.on('value', snapshot => {
     const data = snapshot.val();
     events = data ? Object.values(data) : [];
     render();
