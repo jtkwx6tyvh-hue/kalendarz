@@ -481,6 +481,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script>
 window.onerror=function(msg,src,line,col,err){
   var d=document.getElementById('debug-bar');
@@ -524,11 +525,16 @@ function saveEvents() {
 }
 
 function initFirebase() {
-  eventsRef.on('value', snapshot => {
-    const data = snapshot.val();
-    events = data ? Object.values(data) : [];
-    render();
-  });
+  // Sign in anonymously first, then start listening
+  firebase.auth().signInAnonymously()
+    .then(() => {
+      eventsRef.on('value', snapshot => {
+        const data = snapshot.val();
+        events = data ? Object.values(data) : [];
+        render();
+      });
+    })
+    .catch(err => console.error('Auth error', err));
 }
 
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
