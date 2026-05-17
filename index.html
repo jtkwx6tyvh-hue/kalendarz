@@ -346,43 +346,38 @@
   #day-view.visible { display: block; }
 
   @media (max-width: 640px) {
-    /* ── HEADER ── */
+    /* Header */
     header { padding: 8px 10px; gap: 6px; }
-    header h1 { font-size: 0.95rem; }
+    header h1 { font-size: 0.9rem; }
     .nav-controls { gap: 5px; }
-    .nav-controls button { padding: 4px 10px; font-size: 0.8rem; }
-    #period-label { font-size: 0.88rem; min-width: 110px; }
     .view-toggle button { padding: 4px 9px; font-size: 0.72rem; }
+    .nav-controls button { padding: 4px 10px; font-size: 0.8rem; }
+    #period-label { font-size: 0.88rem; min-width: 0; }
 
-    /* ── LEGEND ── */
+    /* Legend */
     .legend { padding: 5px 10px; gap: 8px; }
-    .legend-item { font-size: 0.75rem; }
+    .legend-item { font-size: 0.72rem; gap: 4px; }
+    .legend-dot { width: 8px; height: 8px; }
     .legend [style*="margin-left:auto"] { display: none; }
 
-    /* ── MODAL ── */
-    .modal { padding: 16px 12px; border-radius: 12px; }
+    /* Modal */
+    .modal { padding: 16px 12px; }
     .two-col { grid-template-columns: 1fr; }
-
-    /* ── MONTH VIEW: mniejsze komórki ── */
-    :root {
-      --col-w:  46px;
-      --label-w: 28px;
-      --row-h:   72px;
-    }
-    .row-label { font-size: 0.52rem; letter-spacing: 0.04em; }
-    .weekdays span { font-size: 0.58rem; }
-    .day-num { font-size: 0.62rem; }
-    .day-num.today-num { width: 15px; height: 15px; font-size: 0.6rem; }
-    .chip-title { font-size: 0.6rem; }
-    .chip-time  { font-size: 0.5rem; }
-    .event-chip { padding: 2px 3px; }
-
-    /* ── ADD HINT ── */
-    .add-hint { font-size: 0.7rem; padding: 6px 10px; }
   }
 
-  /* Hint ogólny */
-  .add-hint { font-size: 0.75rem; color: var(--muted); padding: 8px 20px; }
+  /* Day view swipe container */
+  #day-view { touch-action: pan-y; user-select: none; }
+
+  /* Day label badge */
+  .day-rel-label {
+    display: inline-block; font-size: 0.65rem; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 1px 7px; border-radius: 10px; margin-left: 8px;
+    vertical-align: middle;
+    background: var(--gosia); color: #fff;
+  }
+  .day-rel-label.future { background: var(--adas); }
+  .day-rel-label.past   { background: var(--muted); }
 </style>
 </head>
 <body>
@@ -909,14 +904,9 @@ const SLOT_H = 52; // px per hour slot
 const TIME_W = 46; // px for time label column
 const MEM_W  = 80; // px per member sub-column inside a day
 
-function isMobile() { return window.innerWidth <= 640; }
-
 function renderWeek() {
   const monday = currentWeekMonday;
-  const mobile = isMobile();
-  // On mobile show only 3 days starting from Monday (or today's block of 3)
-  const daysCount = mobile ? 3 : 7;
-  const sunday = addDays(monday, daysCount - 1);
+  const sunday = addDays(monday,6);
   const mStr=toDateStr(monday), sStr=toDateStr(sunday);
 
   const mLabel=MONTH_NAMES[monday.getMonth()];
@@ -927,7 +917,7 @@ function renderWeek() {
   document.getElementById('period-label').textContent=label;
 
   const todayStr=toDateStr(new Date());
-  const weekDays=Array.from({length:daysCount},(_,i)=>{
+  const weekDays=Array.from({length:7},(_,i)=>{
     const dt=addDays(monday,i);
     return {dt, ds:toDateStr(dt), isToday:toDateStr(dt)===todayStr, dow:i};
   });
@@ -1098,15 +1088,22 @@ function renderDay(){
   const todayStr = toDateStr(new Date());
   const isToday = ds === todayStr;
 
-  // Label
+  // Label with relative day badge
   const dow = currentDay.getDay();
   const dowName = ['Niedziela','Poniedziałek','Wtorek','Środa','Czwartek','Piątek','Sobota'][dow];
-  document.getElementById('period-label').textContent =
-    `${dowName}, ${currentDay.getDate()} ${MONTH_NAMES[currentDay.getMonth()]} ${currentDay.getFullYear()}`;
+  const todayD = new Date(); todayD.setHours(0,0,0,0);
+  const curD   = new Date(currentDay); curD.setHours(0,0,0,0);
+  const diffDays = Math.round((curD - todayD) / 86400000);
+  const relLabels = { '-1':'D−1', '0':'Dziś', '1':'Jutro', '2':'Pojutrze' };
+  const relText = relLabels[String(diffDays)] || (diffDays > 0 ? `D+${diffDays}` : `D${diffDays}`);
+  const relCls  = diffDays === 0 ? '' : diffDays > 0 ? ' future' : ' past';
+  const relBadge = `<span class="day-rel-label${relCls}">${relText}</span>`;
+  document.getElementById('period-label').innerHTML =
+    `${dowName}, ${currentDay.getDate()} ${MONTH_NAMES[currentDay.getMonth()]} ${currentDay.getFullYear()}${relBadge}`;
 
   const idx = buildIdx(getOccurrencesInRange(ds,ds), ds, ds);
 
-  const MEM_COL_W = 140;
+  const MEM_COL_W = window.innerWidth < 640 ? 82 : 120;
   const colors = {gosia:'var(--gosia)',grzesiek:'var(--grzesiek)',adas:'var(--adas)',tymek:'var(--tymek)'};
   const gridW2 = MEMBERS.length * MEM_COL_W;
   const hasAllDay = MEMBERS.some(m=>(idx[m.id][ds]||[]).some(o=>!o.ev.time));
@@ -1261,8 +1258,7 @@ function navigate(d){
     if(currentMonth>11){currentMonth=0;currentYear++;}
     if(currentMonth<0) {currentMonth=11;currentYear--;}
   } else if(currentView==='week'){
-    const step = isMobile() ? 3 : 7;
-    currentWeekMonday=addDays(currentWeekMonday,d*step);
+    currentWeekMonday=addDays(currentWeekMonday,d*7);
   } else {
     currentDay=addDays(currentDay,d);
   }
@@ -1603,14 +1599,27 @@ function deleteEvent(){
   saveEvents(); closeModal(); render();
 }
 
-/* ===== RESIZE (orientacja telefonu) ===== */
-let _resizeTimer;
-window.addEventListener('resize', ()=>{
-  clearTimeout(_resizeTimer);
-  _resizeTimer = setTimeout(render, 200);
-});
-
-/* ===== KEYBOARD ===== */
+/* ===== SWIPE (day view) ===== */
+(function(){
+  let startX=0, startY=0, startT=0;
+  const el = document.getElementById('day-view');
+  el.addEventListener('touchstart', e=>{
+    if(e.touches.length!==1) return;
+    startX=e.touches[0].clientX;
+    startY=e.touches[0].clientY;
+    startT=Date.now();
+  }, {passive:true});
+  el.addEventListener('touchend', e=>{
+    if(e.changedTouches.length!==1) return;
+    const dx=e.changedTouches[0].clientX-startX;
+    const dy=e.changedTouches[0].clientY-startY;
+    const dt=Date.now()-startT;
+    // horizontal swipe: fast enough, wide enough, more horizontal than vertical
+    if(dt<400 && Math.abs(dx)>40 && Math.abs(dx)>Math.abs(dy)*1.5){
+      navigate(dx<0 ? 1 : -1);
+    }
+  }, {passive:true});
+})();
 document.getElementById('modal-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('modal-overlay'))closeModal();});
 document.addEventListener('keydown',e=>{
   if(!document.getElementById('lock-screen').classList.contains('hidden')){
