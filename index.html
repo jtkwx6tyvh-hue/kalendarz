@@ -517,6 +517,12 @@ const DAY_FULL    = ['Poniedziałek','Wtorek','Środa','Czwartek','Piątek','Sob
 const MONTH_NAMES = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 const HOURS = Array.from({length:24},(_,i)=>i);
 
+// ── GLOBAL STATE (musi być przed Firebase callbackiem) ──
+let currentYear, currentMonth, currentWeekMonday, currentDay;
+let currentView = 'month';
+let events = [];
+let editingId = null;
+
 /* ===== FIREBASE STORAGE ===== */
 function saveEvents() {
   const obj = {};
