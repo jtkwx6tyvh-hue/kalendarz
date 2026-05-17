@@ -7,10 +7,26 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --gosia:    #e07a5f;
-    --grzesiek: #3d405b;
-    --adas:     #81b29a;
-    --tymek:    #f2cc8f;
+    --gosia:         #e07a5f;
+    --gosia-pastel:  #f2c4b8;
+    --gosia-intense: #b84a2a;
+    --gosia-text:    #fff;
+
+    --grzesiek:         #3d405b;
+    --grzesiek-pastel:  #a8aac0;
+    --grzesiek-intense: #1a1c2e;
+    --grzesiek-text:    #fff;
+
+    --adas:         #81b29a;
+    --adas-pastel:  #c2ddd1;
+    --adas-intense: #3d7a5e;
+    --adas-text:    #fff;
+
+    --tymek:         #f2cc8f;
+    --tymek-pastel:  #faebc8;
+    --tymek-intense: #c8960a;
+    --tymek-text:    #5a4a20;
+
     --bg:       #faf9f6;
     --surface:  #ffffff;
     --border:   #e8e4dc;
@@ -114,17 +130,26 @@
   .chips-bot { margin-top: auto; }
 
   /* ── CHIPS (shared month+week) ── */
-  .event-chip {
-    display: block; border-radius: 4px; padding: 3px 6px; margin-top: 2px;
-    cursor: pointer; max-width: 100%; overflow: hidden; transition: opacity 0.15s;
-  }
+  .event-chip { display: block; border-radius: 4px; padding: 3px 6px; margin-top: 2px; cursor: pointer; max-width: 100%; overflow: hidden; transition: opacity 0.15s; }
   .event-chip:hover { opacity: 0.78; }
   .chip-time  { display: block; font-size: 0.58rem; line-height: 1.2; opacity: 0.88; }
   .chip-title { display: block; font-size: 0.72rem; line-height: 1.3; font-weight: 500; white-space: normal; word-break: break-word; }
-  .event-chip.gosia    { background: var(--gosia);    color: #fff; }
-  .event-chip.grzesiek { background: var(--grzesiek); color: #fff; }
-  .event-chip.adas     { background: var(--adas);     color: #fff; }
-  .event-chip.tymek    { background: var(--tymek);    color: #5a4a20; }
+
+  /* Normal */
+  .event-chip.gosia,    .week-event.gosia    { background: var(--gosia);         color: var(--gosia-text); }
+  .event-chip.grzesiek, .week-event.grzesiek { background: var(--grzesiek);      color: var(--grzesiek-text); }
+  .event-chip.adas,     .week-event.adas     { background: var(--adas);          color: var(--adas-text); }
+  .event-chip.tymek,    .week-event.tymek    { background: var(--tymek);         color: var(--tymek-text); }
+  /* Pastel (multi-day) */
+  .event-chip.gosia.pastel,    .week-event.gosia.pastel    { background: var(--gosia-pastel);    color: #7a3820; }
+  .event-chip.grzesiek.pastel, .week-event.grzesiek.pastel { background: var(--grzesiek-pastel); color: #2a2c40; }
+  .event-chip.adas.pastel,     .week-event.adas.pastel     { background: var(--adas-pastel);     color: #2a5a42; }
+  .event-chip.tymek.pastel,    .week-event.tymek.pastel    { background: var(--tymek-pastel);    color: #7a5a10; }
+  /* Intense (important) */
+  .event-chip.gosia.intense,    .week-event.gosia.intense    { background: var(--gosia-intense);    color: #fff; box-shadow: 0 2px 6px rgba(184,74,42,.4); }
+  .event-chip.grzesiek.intense, .week-event.grzesiek.intense { background: var(--grzesiek-intense); color: #fff; box-shadow: 0 2px 6px rgba(26,28,46,.5); }
+  .event-chip.adas.intense,     .week-event.adas.intense     { background: var(--adas-intense);     color: #fff; box-shadow: 0 2px 6px rgba(61,122,94,.4); }
+  .event-chip.tymek.intense,    .week-event.tymek.intense    { background: var(--tymek-intense);    color: #fff; box-shadow: 0 2px 6px rgba(200,150,10,.4); }
 
   /* ── WEEK VIEW ── */
   #week-view { display: none; }
@@ -192,16 +217,11 @@
   .week-slot.today-col:hover { background: #f5efda; }
 
   /* Events positioned absolutely inside slots */
-  .week-event {
-    position: absolute; left: 2px; right: 2px;
-    border-radius: 4px; padding: 2px 5px; cursor: pointer;
-    overflow: hidden; transition: opacity 0.15s; z-index: 2;
-  }
+  .week-event { position: absolute; left: 2px; right: 2px; border-radius: 4px; padding: 2px 5px; cursor: pointer; overflow: hidden; transition: opacity 0.15s; z-index: 2; }
+  .week-event.all-members { background: var(--grzesiek); color: #fff; border-left: 4px solid var(--gosia); }
+  .week-event.all-members.pastel  { background: var(--grzesiek-pastel); color: #2a2c40; border-left-color: var(--gosia-pastel); box-shadow: none; }
+  .week-event.all-members.intense { background: var(--grzesiek-intense); color: #fff; border-left-color: var(--gosia-intense); box-shadow: 0 2px 8px rgba(0,0,0,.3); }
   .week-event:hover { opacity: 0.82; }
-  .week-event.gosia    { background: var(--gosia);    color: #fff; }
-  .week-event.grzesiek { background: var(--grzesiek); color: #fff; }
-  .week-event.adas     { background: var(--adas);     color: #fff; }
-  .week-event.tymek    { background: var(--tymek);    color: #5a4a20; }
   .week-event .chip-time  { font-size: 0.56rem; opacity: 0.9; }
   .week-event .chip-title { font-size: 0.68rem; font-weight: 500; white-space: normal; word-break: break-word; }
 
@@ -277,6 +297,22 @@
   .btn-danger:hover  { background: #c45f44; }
   .btn-ghost   { background: transparent; color: var(--muted); border: 1.5px solid var(--border); }
   .btn-ghost:hover   { background: var(--border); }
+
+  .importance-picks { display: flex; gap: 8px; margin-bottom: 13px; }
+  .imp-btn { padding: 6px 16px; border-radius: 20px; border: 2px solid var(--border); background: var(--bg); font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+  .imp-btn:hover { border-color: var(--grzesiek); }
+  .imp-btn.selected[data-imp="normal"]    { background: var(--grzesiek); border-color: var(--grzesiek); color: #fff; }
+  .imp-btn.selected[data-imp="important"] { background: var(--gosia-intense); border-color: var(--gosia-intense); color: #fff; }
+
+  .icon-picks { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 13px; }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 8px; border: 2px solid var(--border);
+    background: var(--bg); font-size: 1.1rem; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; transition: all 0.15s;
+    font-family: inherit;
+  }
+  .icon-btn:hover { border-color: var(--grzesiek); background: #f0ede6; }
+  .icon-btn.selected { border-color: var(--grzesiek); background: var(--grzesiek); color: #fff; }
 
   .add-hint { font-size: 0.68rem; color: var(--muted); text-align: center; margin-top: 8px; }
 
@@ -428,6 +464,28 @@
 
     <label class="field-label">Tytuł</label>
     <input id="ev-title" type="text" placeholder="np. Lekarz, Basen, Wakacje…">
+
+    <label class="field-label">Ważność</label>
+    <div class="importance-picks" id="importance-picks">
+      <button type="button" class="imp-btn selected" data-imp="normal" onclick="pickImp(this)">Zwykłe</button>
+      <button type="button" class="imp-btn" data-imp="important" onclick="pickImp(this)">⭐ Ważne</button>
+    </div>
+
+    <label class="field-label">Ikona (opcjonalnie)</label>
+    <div class="icon-picks" id="icon-picks">
+      <button type="button" class="icon-btn" data-icon="" onclick="pickIcon(this)" title="Brak">—</button>
+      <button type="button" class="icon-btn" data-icon="♟️" onclick="pickIcon(this)" title="Szachy">♟️</button>
+      <button type="button" class="icon-btn" data-icon="⚽" onclick="pickIcon(this)" title="Piłka">⚽</button>
+      <button type="button" class="icon-btn" data-icon="🏊" onclick="pickIcon(this)" title="Basen">🏊</button>
+      <button type="button" class="icon-btn" data-icon="⛷️" onclick="pickIcon(this)" title="Narty">⛷️</button>
+      <button type="button" class="icon-btn" data-icon="💼" onclick="pickIcon(this)" title="Wyjazd służbowy">💼</button>
+      <button type="button" class="icon-btn" data-icon="🏖️" onclick="pickIcon(this)" title="Wakacje">🏖️</button>
+      <button type="button" class="icon-btn" data-icon="🏥" onclick="pickIcon(this)" title="Lekarz">🏥</button>
+      <button type="button" class="icon-btn" data-icon="🎂" onclick="pickIcon(this)" title="Urodziny">🎂</button>
+      <button type="button" class="icon-btn" data-icon="🎓" onclick="pickIcon(this)" title="Szkoła">🎓</button>
+      <button type="button" class="icon-btn" data-icon="🏋️" onclick="pickIcon(this)" title="Trening">🏋️</button>
+      <button type="button" class="icon-btn" data-icon="🎵" onclick="pickIcon(this)" title="Muzyka">🎵</button>
+    </div>
 
     <div class="two-col">
       <div><label class="field-label">Od</label><input id="ev-date-from" type="date"></div>
@@ -618,9 +676,11 @@ function makeChipStyled(o, ds, extraStyle='', cls='event-chip') {
   const isStart = o.occFrom===ds;
   const timeStr = (isStart&&o.ev.time) ? `${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}` : '';
   const timeHtml = timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-  const titleText= isStart?o.ev.title:'';
+  const icon = o.ev.icon ? `${o.ev.icon} ` : '';
+  const titleText = icon + o.ev.title;
   const styleAttr = extraStyle ? ` style="${extraStyle}"` : '';
-  return `<span class="${cls} ${o.person}"${styleAttr} onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${titleText}</span></span>`;
+  const intCls = intensityClass(o);
+  return `<span class="${cls} ${o.person}${intCls?' '+intCls:''}"${styleAttr} onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${titleText}</span></span>`;
 }
 
 /* ===== MONTH RENDER ===== */
@@ -784,52 +844,66 @@ function renderWeek() {
     html+=`</div>`;
   });
   html+=`</div>`;
+  const allMemberIds = MEMBERS.map(m=>m.id).sort().join(',');
+  const renderedEvIds = new Set();
+
   weekDays.forEach((d,di)=>{
+    // First pass: render all-members events as one wide block
+    const dayOccs = idx[MEMBERS[0].id][d.ds]||[];
+    dayOccs.forEach(o=>{
+      if(!o.ev.time) return;
+      const allForAll = MEMBERS.every(m=>(idx[m.id][d.ds]||[]).some(x=>x.ev.id===o.ev.id));
+      if(!allForAll) return;
+      const evKey = d.ds+'|'+o.ev.id;
+      if(renderedEvIds.has(evKey)) return;
+      renderedEvIds.add(evKey);
+
+      const isMultiDay=o.occFrom!==o.occTo, isStart=o.occFrom===d.ds, isEnd=o.occTo===d.ds;
+      let topPx,heightPx;
+      if(!isMultiDay){
+        const [sh,sm]=o.ev.time.split(':').map(Number);
+        if(sh<7||sh>22) return;
+        topPx=(sh-7+sm/60)*SLOT_H; heightPx=SLOT_H;
+        if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);}
+      } else if(isStart){
+        const [sh,sm]=o.ev.time.split(':').map(Number);
+        topPx=sh<7?0:(sh-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
+      } else if(isEnd){
+        topPx=0; heightPx=o.ev.timeEnd?(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return Math.max(20,(eh-7+em/60)*SLOT_H);})():WEEK_HOURS.length*SLOT_H;
+      } else { topPx=0; heightPx=WEEK_HOURS.length*SLOT_H; }
+
+      const leftPx=di*dayW+2;
+      const width=dayW-6;
+      const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
+      const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
+      html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${width}px" onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+    });
+
+    // Second pass: render per-member events (skip all-members ones)
     MEMBERS.forEach((mem,mi)=>{
       const timed=(idx[mem.id][d.ds]||[]).filter(o=>o.ev.time);
       timed.forEach(o=>{
-        const isMultiDay = o.occFrom !== o.occTo;
-        const isStart = o.occFrom === d.ds;
-        const isEnd   = o.occTo   === d.ds;
+        const allForAll=MEMBERS.every(m=>(idx[m.id][d.ds]||[]).some(x=>x.ev.id===o.ev.id));
+        if(allForAll) return; // already rendered as wide block
 
-        let topPx, heightPx;
-
+        const isMultiDay=o.occFrom!==o.occTo, isStart=o.occFrom===d.ds, isEnd=o.occTo===d.ds;
+        let topPx,heightPx;
         if(!isMultiDay){
-          // Single day event – use exact times
           const [sh,sm]=o.ev.time.split(':').map(Number);
           if(sh<7||sh>22) return;
-          topPx=(sh-7+sm/60)*SLOT_H;
-          heightPx=SLOT_H;
-          if(o.ev.timeEnd){
-            const [eh,em]=o.ev.timeEnd.split(':').map(Number);
-            heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);
-          }
+          topPx=(sh-7+sm/60)*SLOT_H; heightPx=SLOT_H;
+          if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);}
         } else if(isStart){
-          // First day: start at event time, go to end of day
           const [sh,sm]=o.ev.time.split(':').map(Number);
-          if(sh<7) { topPx=0; } else if(sh>22) return;
-          else topPx=(sh-7+sm/60)*SLOT_H;
-          heightPx=WEEK_HOURS.length*SLOT_H - topPx;
+          topPx=sh<7?0:(sh-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
         } else if(isEnd){
-          // Last day: start from top, end at event time
-          topPx=0;
-          if(o.ev.timeEnd){
-            const [eh,em]=o.ev.timeEnd.split(':').map(Number);
-            heightPx=Math.max(20,(eh-7+em/60)*SLOT_H);
-          } else {
-            heightPx=WEEK_HOURS.length*SLOT_H;
-          }
-        } else {
-          // Middle day: full height
-          topPx=0;
-          heightPx=WEEK_HOURS.length*SLOT_H;
-        }
+          topPx=0; heightPx=o.ev.timeEnd?(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return Math.max(20,(eh-7+em/60)*SLOT_H);})():WEEK_HOURS.length*SLOT_H;
+        } else { topPx=0; heightPx=WEEK_HOURS.length*SLOT_H; }
 
         const leftPx=di*dayW+mi*MEM_W+2;
         const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
         const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-        const titleText=isStart?o.ev.title:'';
-        html+=`<div class="week-event ${mem.id}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_W-5}px" onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${titleText}</span></div>`;
+        html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_W-5}px" onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
       });
     });
   });
@@ -911,9 +985,44 @@ function renderDay(){
     html+=`</div>`;
   });
   html+=`</div>`;
+
+  const renderedDayEvIds = new Set();
+
+  // First pass: all-members events as one wide block
+  const dayOccs0 = idx[MEMBERS[0].id][ds]||[];
+  dayOccs0.forEach(o=>{
+    if(!o.ev.time) return;
+    const allForAll=MEMBERS.every(m=>(idx[m.id][ds]||[]).some(x=>x.ev.id===o.ev.id));
+    if(!allForAll) return;
+    if(renderedDayEvIds.has(o.ev.id)) return;
+    renderedDayEvIds.add(o.ev.id);
+
+    const isMultiDay=o.occFrom!==o.occTo, isStart=o.occFrom===ds, isEnd=o.occTo===ds;
+    let topPx,heightPx;
+    if(!isMultiDay){
+      const [sh,sm]=o.ev.time.split(':').map(Number);
+      if(sh<7||sh>22) return;
+      topPx=(sh-7+sm/60)*SLOT_H; heightPx=SLOT_H;
+      if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);}
+    } else if(isStart){
+      const [sh,sm]=o.ev.time.split(':').map(Number);
+      topPx=sh<7?0:(sh-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
+    } else if(isEnd){
+      topPx=0; heightPx=o.ev.timeEnd?(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return Math.max(20,(eh-7+em/60)*SLOT_H);})():WEEK_HOURS.length*SLOT_H;
+    } else { topPx=0; heightPx=WEEK_HOURS.length*SLOT_H; }
+
+    const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
+    const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
+    html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:3px;width:${gridW2-10}px" onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+  });
+
+  // Second pass: per-member events
   MEMBERS.forEach((mem,mi)=>{
     const timed=(idx[mem.id][ds]||[]).filter(o=>o.ev.time);
     timed.forEach(o=>{
+      const allForAll=MEMBERS.every(m=>(idx[m.id][ds]||[]).some(x=>x.ev.id===o.ev.id));
+      if(allForAll) return;
+
       const isMultiDay = o.occFrom !== o.occTo;
       const isStart = o.occFrom === ds;
       const isEnd   = o.occTo   === ds;
@@ -942,8 +1051,7 @@ function renderDay(){
       const leftPx=mi*MEM_COL_W+3;
       const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
       const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-      const titleText=isStart?o.ev.title:'';
-      html+=`<div class="week-event ${mem.id}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_COL_W-7}px" onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${titleText}</span></div>`;
+      html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_COL_W-7}px" onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
     });
   });
   html+=`</div>`;
@@ -1001,7 +1109,45 @@ function goToday(){
 }
 
 /* ===== MODAL UI ===== */
-function togglePerson(cb){ document.getElementById('lbl-'+cb.value).classList.toggle('checked-'+cb.value,cb.checked); }
+function pickImp(btn){
+  document.querySelectorAll('.imp-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+function getImp(){
+  const sel=document.querySelector('.imp-btn.selected');
+  return sel ? sel.dataset.imp : 'normal';
+}
+function setImp(imp){
+  document.querySelectorAll('.imp-btn').forEach(b=>{
+    b.classList.toggle('selected', b.dataset.imp===(imp||'normal'));
+  });
+}
+
+// Returns CSS intensity class for an event occurrence
+function intensityClass(o){
+  const isMultiDay = o.occFrom !== o.occTo;
+  if(o.ev.importance==='important') return 'intense';
+  if(isMultiDay) return 'pastel';
+  return '';
+}
+
+function pickIcon(btn){
+  document.querySelectorAll('.icon-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+function getIcon(){
+  const sel=document.querySelector('.icon-btn.selected');
+  return sel ? sel.dataset.icon : '';
+}
+function setIcon(icon){
+  document.querySelectorAll('.icon-btn').forEach(b=>{
+    b.classList.toggle('selected', b.dataset.icon===icon);
+  });
+  // if no match, select the "none" button
+  if(!document.querySelector('.icon-btn.selected')){
+    document.querySelector('.icon-btn[data-icon=""]').classList.add('selected');
+  }
+}
 function setPersons(arr){ document.querySelectorAll('.person-check input').forEach(cb=>{ cb.checked=arr.includes(cb.value); document.getElementById('lbl-'+cb.value).classList.toggle('checked-'+cb.value,cb.checked); }); }
 function getPersons(){ return [...document.querySelectorAll('.person-check input:checked')].map(cb=>cb.value); }
 function toggleRec(cb){ document.getElementById('rec-options').classList.toggle('visible',cb.checked); }
@@ -1026,6 +1172,8 @@ function resetModal(){
   document.getElementById('ev-time').value='';
   document.getElementById('ev-time-end').value='';
   document.getElementById('ev-note').value='';
+  setIcon('');
+  setImp('normal');
 }
 
 function openNew(ds, personId, hour){
@@ -1052,6 +1200,8 @@ function openEdit(e,id){
   document.getElementById('ev-time').value=ev.time||'';
   document.getElementById('ev-time-end').value=ev.timeEnd||'';
   document.getElementById('ev-note').value=ev.note||'';
+  setIcon(ev.icon||'');
+  setImp(ev.importance||'normal');
   setPersons(ev.persons||[]);
   document.getElementById('btn-delete').style.display='inline-block';
   if(ev.recurrence){
@@ -1082,6 +1232,8 @@ function saveEvent(){
   const time=document.getElementById('ev-time').value||null;
   const timeEnd=document.getElementById('ev-time-end').value||null;
   const note=document.getElementById('ev-note').value.trim()||null;
+  const icon=getIcon()||null;
+  const importance=getImp();
 
   let recurrence=null;
   if(document.getElementById('rec-enabled').checked){
@@ -1096,9 +1248,9 @@ function saveEvent(){
 
   if(editingId){
     const ev=events.find(x=>x.id===editingId);
-    if(ev)Object.assign(ev,{title,persons,dateFrom,dateTo,time,timeEnd,note,recurrence});
+    if(ev)Object.assign(ev,{title,persons,dateFrom,dateTo,time,timeEnd,note,icon,importance,recurrence});
   } else {
-    events.push({id:uid(),title,persons,dateFrom,dateTo,time,timeEnd,note,recurrence});
+    events.push({id:uid(),title,persons,dateFrom,dateTo,time,timeEnd,note,icon,importance,recurrence});
   }
   saveEvents(); closeModal(); render();
 }
