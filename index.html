@@ -346,12 +346,43 @@
   #day-view.visible { display: block; }
 
   @media (max-width: 640px) {
-    header { padding: 10px 12px; }
-    header h1 { font-size: 1rem; }
-    .legend { padding: 7px 10px; gap: 10px; }
-    .modal { padding: 18px 14px; }
+    /* ── HEADER ── */
+    header { padding: 8px 10px; gap: 6px; }
+    header h1 { font-size: 0.95rem; }
+    .nav-controls { gap: 5px; }
+    .nav-controls button { padding: 4px 10px; font-size: 0.8rem; }
+    #period-label { font-size: 0.88rem; min-width: 110px; }
+    .view-toggle button { padding: 4px 9px; font-size: 0.72rem; }
+
+    /* ── LEGEND ── */
+    .legend { padding: 5px 10px; gap: 8px; }
+    .legend-item { font-size: 0.75rem; }
+    .legend [style*="margin-left:auto"] { display: none; }
+
+    /* ── MODAL ── */
+    .modal { padding: 16px 12px; border-radius: 12px; }
     .two-col { grid-template-columns: 1fr; }
+
+    /* ── MONTH VIEW: mniejsze komórki ── */
+    :root {
+      --col-w:  46px;
+      --label-w: 28px;
+      --row-h:   72px;
+    }
+    .row-label { font-size: 0.52rem; letter-spacing: 0.04em; }
+    .weekdays span { font-size: 0.58rem; }
+    .day-num { font-size: 0.62rem; }
+    .day-num.today-num { width: 15px; height: 15px; font-size: 0.6rem; }
+    .chip-title { font-size: 0.6rem; }
+    .chip-time  { font-size: 0.5rem; }
+    .event-chip { padding: 2px 3px; }
+
+    /* ── ADD HINT ── */
+    .add-hint { font-size: 0.7rem; padding: 6px 10px; }
   }
+
+  /* Hint ogólny */
+  .add-hint { font-size: 0.75rem; color: var(--muted); padding: 8px 20px; }
 </style>
 </head>
 <body>
@@ -878,9 +909,14 @@ const SLOT_H = 52; // px per hour slot
 const TIME_W = 46; // px for time label column
 const MEM_W  = 80; // px per member sub-column inside a day
 
+function isMobile() { return window.innerWidth <= 640; }
+
 function renderWeek() {
   const monday = currentWeekMonday;
-  const sunday = addDays(monday,6);
+  const mobile = isMobile();
+  // On mobile show only 3 days starting from Monday (or today's block of 3)
+  const daysCount = mobile ? 3 : 7;
+  const sunday = addDays(monday, daysCount - 1);
   const mStr=toDateStr(monday), sStr=toDateStr(sunday);
 
   const mLabel=MONTH_NAMES[monday.getMonth()];
@@ -891,7 +927,7 @@ function renderWeek() {
   document.getElementById('period-label').textContent=label;
 
   const todayStr=toDateStr(new Date());
-  const weekDays=Array.from({length:7},(_,i)=>{
+  const weekDays=Array.from({length:daysCount},(_,i)=>{
     const dt=addDays(monday,i);
     return {dt, ds:toDateStr(dt), isToday:toDateStr(dt)===todayStr, dow:i};
   });
@@ -1225,7 +1261,8 @@ function navigate(d){
     if(currentMonth>11){currentMonth=0;currentYear++;}
     if(currentMonth<0) {currentMonth=11;currentYear--;}
   } else if(currentView==='week'){
-    currentWeekMonday=addDays(currentWeekMonday,d*7);
+    const step = isMobile() ? 3 : 7;
+    currentWeekMonday=addDays(currentWeekMonday,d*step);
   } else {
     currentDay=addDays(currentDay,d);
   }
@@ -1565,6 +1602,13 @@ function deleteEvent(){
   events=events.filter(x=>x.id!==editingId);
   saveEvents(); closeModal(); render();
 }
+
+/* ===== RESIZE (orientacja telefonu) ===== */
+let _resizeTimer;
+window.addEventListener('resize', ()=>{
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(render, 200);
+});
 
 /* ===== KEYBOARD ===== */
 document.getElementById('modal-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('modal-overlay'))closeModal();});
