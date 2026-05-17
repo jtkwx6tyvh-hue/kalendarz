@@ -314,7 +314,15 @@
   .icon-btn:hover { border-color: var(--grzesiek); background: #f0ede6; }
   .icon-btn.selected { border-color: var(--grzesiek); background: var(--grzesiek); color: #fff; }
 
-  .add-hint { font-size: 0.68rem; color: var(--muted); text-align: center; margin-top: 8px; }
+  #preview-overlay { position:fixed;inset:0;background:rgba(44,44,44,0.45);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity 0.2s; }
+  #preview-overlay.open { opacity:1;pointer-events:all; }
+  #preview-overlay .modal { transform:translateY(12px);transition:transform 0.22s; }
+  #preview-overlay.open .modal { transform:translateY(0); }
+  .preview-row { display:flex;gap:8px;align-items:flex-start;padding:4px 0;border-bottom:1px solid var(--border); }
+  .preview-row:last-child { border-bottom:none; }
+  .preview-label { font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;min-width:70px;padding-top:2px; }
+  .preview-val { font-size:0.88rem;color:var(--text); }
+  .preview-person-dot { display:inline-flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:500;padding:2px 8px;border-radius:12px;color:#fff; }
 
   /* ── LOCK ── */
   #lock-screen { position: fixed; inset: 0; z-index: 9999; background: var(--grzesiek); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: #fff; }
@@ -548,6 +556,20 @@
   </div>
 </div>
 
+<!-- PREVIEW MODAL -->
+<div class="modal-overlay" id="preview-overlay">
+  <div class="modal" style="max-width:360px">
+    <div id="preview-icon" style="font-size:2rem;text-align:center;margin-bottom:6px"></div>
+    <h2 id="preview-title" style="text-align:center;margin-bottom:4px"></h2>
+    <div id="preview-persons" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:14px"></div>
+    <div id="preview-body" style="font-size:0.88rem;color:var(--text);line-height:1.7"></div>
+    <div class="modal-actions" style="margin-top:18px">
+      <button class="btn btn-ghost" onclick="closePreview()">Zamknij</button>
+      <button class="btn btn-primary" id="preview-edit-btn" onclick="previewToEdit()">✏️ Edytuj</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- /#app -->
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -729,7 +751,7 @@ function makeChipStyled(o, ds, extraStyle='', cls='event-chip') {
   const titleText = icon + o.ev.title;
   const styleAttr = extraStyle ? ` style="${extraStyle}"` : '';
   const intCls = intensityClass(o);
-  return `<span class="${cls} ${o.person}${intCls?' '+intCls:''}"${styleAttr} onclick="openEdit(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${titleText}</span></span>`;
+  return `<span class="${cls} ${o.person}${intCls?' '+intCls:''}"${styleAttr} onclick="openPreview(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${titleText}</span></span>`;
 }
 
 /* ===== MONTH RENDER ===== */
@@ -986,7 +1008,7 @@ function renderWeek() {
       const width=dayW-6;
       const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
       const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-      html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${width}px" onclick="openEdit(event,'${o.ev.id}','${d.ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+      html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${width}px" onclick="openPreview(event,'${o.ev.id}','${d.ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
     });
 
     // Second pass: render per-member events (skip all-members ones)
@@ -1013,7 +1035,7 @@ function renderWeek() {
         const leftPx=di*dayW+mi*MEM_W+2;
         const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
         const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-        html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_W-5}px" onclick="openEdit(event,'${o.ev.id}','${d.ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+        html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_W-5}px" onclick="openPreview(event,'${o.ev.id}','${d.ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
       });
     });
   });
@@ -1123,7 +1145,7 @@ function renderDay(){
 
     const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
     const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-    html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:3px;width:${gridW2-10}px" onclick="openEdit(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+    html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:3px;width:${gridW2-10}px" onclick="openPreview(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
   });
 
   // Second pass: per-member events
@@ -1161,7 +1183,7 @@ function renderDay(){
       const leftPx=mi*MEM_COL_W+3;
       const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
       const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-      html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_COL_W-7}px" onclick="openEdit(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+      html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_COL_W-7}px" onclick="openPreview(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
     });
   });
   html+=`</div>`;
@@ -1258,6 +1280,7 @@ function setIcon(icon){
     document.querySelector('.icon-btn[data-icon=""]').classList.add('selected');
   }
 }
+function togglePerson(cb){ document.getElementById('lbl-'+cb.value).classList.toggle('checked-'+cb.value,cb.checked); }
 function setPersons(arr){ document.querySelectorAll('.person-check input').forEach(cb=>{ cb.checked=arr.includes(cb.value); document.getElementById('lbl-'+cb.value).classList.toggle('checked-'+cb.value,cb.checked); }); }
 function getPersons(){ return [...document.querySelectorAll('.person-check input:checked')].map(cb=>cb.value); }
 function toggleRec(cb){ document.getElementById('rec-options').classList.toggle('visible',cb.checked); }
@@ -1298,6 +1321,84 @@ function openNew(ds, personId, hour){
   document.getElementById('modal-overlay').classList.add('open');
   setTimeout(()=>document.getElementById('ev-title').focus(),180);
 }
+
+/* ===== PREVIEW ===== */
+let previewEvId = null, previewOccDs = null;
+
+const PERSON_COLORS = {gosia:'var(--gosia)',grzesiek:'var(--grzesiek)',adas:'var(--adas)',tymek:'var(--tymek)'};
+const PERSON_LABELS = {gosia:'Gosia',grzesiek:'Grzesiek',adas:'Adaś',tymek:'Tymek'};
+const PERSON_TEXT   = {gosia:'#fff',grzesiek:'#fff',adas:'#fff',tymek:'#5a4a20'};
+
+function openPreview(e, evId, occDs){
+  e.stopPropagation();
+  const evBase = events.find(x=>x.id===evId);
+  if(!evBase) return;
+  const override = occDs && evBase.overrides && evBase.overrides[occDs];
+  const ev = override ? {...evBase,...override,id:evBase.id} : evBase;
+
+  previewEvId = evId;
+  previewOccDs = occDs||null;
+
+  document.getElementById('preview-icon').textContent = ev.icon||'';
+  document.getElementById('preview-title').textContent = ev.title;
+
+  const personsHtml = (ev.persons||[]).map(p=>
+    `<span class="preview-person-dot" style="background:${PERSON_COLORS[p]};color:${PERSON_TEXT[p]}">${PERSON_LABELS[p]}</span>`
+  ).join('');
+  document.getElementById('preview-persons').innerHTML = personsHtml;
+
+  const rows = [];
+  const dateFrom = occDs || ev.dateFrom;
+  const dateTo   = occDs ? null : ev.dateTo;
+  let dateLabel = formatDatePl(dateFrom);
+  if(dateTo) dateLabel += ' – ' + formatDatePl(dateTo);
+  rows.push({label:'Data', val:dateLabel});
+  if(ev.time){
+    let t = ev.time; if(ev.timeEnd) t += ' – '+ev.timeEnd;
+    rows.push({label:'Godzina', val:t});
+  }
+  const impLabels = {normal:'Zwykłe', important:'⭐ Ważne'};
+  rows.push({label:'Ważność', val:impLabels[ev.importance||'normal']||'Zwykłe'});
+  if(evBase.recurrence) rows.push({label:'Cykliczne', val:recurrenceDesc(evBase.recurrence)});
+  if(ev.note) rows.push({label:'Notatka', val:ev.note});
+
+  document.getElementById('preview-body').innerHTML = rows.map(r=>
+    `<div class="preview-row"><span class="preview-label">${r.label}</span><span class="preview-val">${r.val}</span></div>`
+  ).join('');
+
+  document.getElementById('preview-overlay').classList.add('open');
+}
+
+function formatDatePl(ds){
+  if(!ds) return '';
+  const [y,m,d] = ds.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+function recurrenceDesc(rec){
+  const freqMap = {daily:'codziennie',weekly:'co tydzień',monthly:'co miesiąc'};
+  let s = freqMap[rec.freq]||rec.freq;
+  if(rec.interval>1) s = `co ${rec.interval} `+({daily:'dni',weekly:'tygodnie',monthly:'miesiące'}[rec.freq]||'');
+  if(rec.endType==='count') s += `, ${rec.endCount} razy`;
+  else if(rec.endUntil) s += ` do ${formatDatePl(rec.endUntil)}`;
+  return s;
+}
+
+function closePreview(){
+  document.getElementById('preview-overlay').classList.remove('open');
+  previewEvId = null; previewOccDs = null;
+}
+
+function previewToEdit(){
+  const evId = previewEvId, occDs = previewOccDs;
+  closePreview();
+  const fakeE = {stopPropagation:()=>{}};
+  openEdit(fakeE, evId, occDs||undefined);
+}
+
+document.getElementById('preview-overlay').addEventListener('click', function(e){
+  if(e.target===this) closePreview();
+});
 
 // pendingScope: { evId, occDs, action:'edit'|'delete' }
 let pendingScope = null;
