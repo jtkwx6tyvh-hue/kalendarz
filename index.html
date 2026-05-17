@@ -535,6 +535,19 @@
   </div>
 </div>
 
+<!-- RECURRING SCOPE DIALOG -->
+<div class="modal-overlay" id="scope-overlay">
+  <div class="modal" style="max-width:320px;text-align:center">
+    <h2 style="font-size:1.1rem;margin-bottom:8px" id="scope-title">Edytuj wydarzenie</h2>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:20px">To jest wydarzenie cykliczne. Co chcesz zmienić?</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-primary" onclick="scopeChoose('one')">Tylko to wystąpienie</button>
+      <button class="btn btn-ghost" onclick="scopeChoose('all')">Całą serię</button>
+      <button class="btn btn-ghost" onclick="scopeCancel()" style="margin-top:4px;font-size:0.8rem">Anuluj</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- /#app -->
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -600,6 +613,34 @@ function initFirebase() {
     .catch(err => console.error('Auth error', err));
 }
 
+const STATUS_OPTIONS = [
+  { val:'',    emoji:'',   label:'Brak' },
+  { val:'home', emoji:'🏠', label:'Dom' },
+  { val:'office',emoji:'🏢',label:'Biuro' },
+  { val:'travel',emoji:'✈️',label:'Wyjazd' },
+  { val:'off',  emoji:'🌴', label:'Wolne' },
+];
+const STATUS_STORAGE = 'kal_day_statuses';
+let dayStatuses = {};
+
+function loadStatuses(){
+  try{ dayStatuses=JSON.parse(localStorage.getItem(STATUS_STORAGE))||{}; }catch(e){ dayStatuses={}; }
+}
+function saveStatuses(){
+  localStorage.setItem(STATUS_STORAGE, JSON.stringify(dayStatuses));
+}
+function cycleStatus(memId, ds){
+  const key=`status_${memId}_${ds}`;
+  const cur=dayStatuses[key]||'';
+  const vals=STATUS_OPTIONS.map(s=>s.val);
+  const idx=vals.indexOf(cur);
+  const next=vals[(idx+1)%vals.length];
+  if(next==='') delete dayStatuses[key];
+  else dayStatuses[key]=next;
+  saveStatuses();
+  renderWeek();
+}
+
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 
 /* ===== DATE UTILS ===== */
@@ -636,8 +677,16 @@ function getOccurrencesInRange(rangeFromDs, rangeToDs) {
         const occTo=new Date(occ.getTime()+durMs);
         const matchDay=rec.freq!=='weekly'||!rec.weekdays||rec.weekdays.length===0||rec.weekdays.includes(occ.getDay());
         if(matchDay){
-          if(occ<=RT&&occTo>=RF)
-            for(const p of ev.persons) result.push({ev,person:p,occFrom:toDateStr(occ),occTo:toDateStr(occTo)});
+          const occDs=toDateStr(occ);
+          // Skip exceptions
+          const isException = ev.exceptions && ev.exceptions.includes(occDs);
+          if(!isException && occ<=RT&&occTo>=RF){
+            // Apply override if exists
+            const override = ev.overrides && ev.overrides[occDs];
+            const evEff = override ? {...ev, ...override} : ev;
+            const persons = evEff.persons || ev.persons;
+            for(const p of persons) result.push({ev:evEff, evBase:ev, person:p, occFrom:occDs, occTo:toDateStr(occTo)});
+          }
           count++;
           if(rec.freq==='daily')       occ=addDays(occ,rec.interval||1);
           else if(rec.freq==='weekly') occ=addDays(occ,(rec.interval||1)*7);
@@ -680,7 +729,7 @@ function makeChipStyled(o, ds, extraStyle='', cls='event-chip') {
   const titleText = icon + o.ev.title;
   const styleAttr = extraStyle ? ` style="${extraStyle}"` : '';
   const intCls = intensityClass(o);
-  return `<span class="${cls} ${o.person}${intCls?' '+intCls:''}"${styleAttr} onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${titleText}</span></span>`;
+  return `<span class="${cls} ${o.person}${intCls?' '+intCls:''}"${styleAttr} onclick="openEdit(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${titleText}</span></span>`;
 }
 
 /* ===== MONTH RENDER ===== */
@@ -712,6 +761,7 @@ function renderMonth() {
 
   for(let w=0;w<weeks;w++){
     const wd=days.slice(w*7,w*7+7);
+    // date row
     html+=`<div class="row-label" style="background:var(--surface);min-height:28px;position:sticky;left:0;z-index:4"></div>`;
     wd.forEach(day=>{
       const isToday=day.ds===todayStr;
@@ -719,27 +769,73 @@ function renderMonth() {
       const num=isToday?`<span class="day-num today-num">${day.d}</span>`:`<span class="day-num">${day.d}</span>`;
       html+=`<div class="${cls}">${num}</div>`;
     });
+
+    // Collect all-members event IDs per day
+    const allMembersEvIds = {}; // ds -> Set of evIds
+    wd.forEach(day=>{
+      allMembersEvIds[day.ds] = new Set();
+      const firstMemberOccs = idx[MEMBERS[0].id][day.ds]||[];
+      firstMemberOccs.forEach(o=>{
+        if(MEMBERS.every(m=>(idx[m.id][day.ds]||[]).some(x=>x.ev.id===o.ev.id)))
+          allMembersEvIds[day.ds].add(o.ev.id);
+      });
+    });
+
+    // All-members row (only if any all-member events exist this week)
+    const weekHasAllMembers = wd.some(day=>allMembersEvIds[day.ds].size>0);
+    if(weekHasAllMembers){
+      html+=`<div class="row-label" style="background:var(--grzesiek);color:#fff;font-size:0.55rem;writing-mode:vertical-rl;transform:rotate(180deg);display:flex;align-items:center;justify-content:center;position:sticky;left:0;z-index:4;min-height:40px">Wszyscy</div>`;
+      wd.forEach(day=>{
+        const isToday=day.ds===todayStr;
+        const cls=`day-cell${day.om?' other-month':''}${isToday?' today':''}`;
+        const cellOccs=(idx[MEMBERS[0].id][day.ds]||[])
+          .filter(o=>allMembersEvIds[day.ds].has(o.ev.id))
+          .slice().sort((a,b)=>{
+            const ta=(a.occFrom===day.ds&&a.ev.time)?a.ev.time:'00:00';
+            const tb=(b.occFrom===day.ds&&b.ev.time)?b.ev.time:'00:00';
+            return ta.localeCompare(tb);
+          });
+        const topChips=[],botChips=[];
+        for(const o of cellOccs){
+          const isMulti=o.occFrom!==o.occTo, isStart=o.occFrom===day.ds, isEnd=o.occTo===day.ds;
+          let extraStyle='';
+          if(isMulti){
+            if(isStart)    extraStyle='border-radius:4px 0 0 4px;margin-right:-5px;padding-right:1px;';
+            else if(isEnd) extraStyle='border-radius:0 4px 4px 0;margin-left:-5px;padding-left:1px;';
+            else           extraStyle='border-radius:0;margin-left:-5px;margin-right:-5px;padding-left:1px;padding-right:1px;';
+          }
+          // Use grzesiek color for all-members
+          const oAll={...o, person:'grzesiek'};
+          const chip=makeChipStyled(oAll,day.ds,extraStyle);
+          const isAfternoon=isStart&&o.ev.time&&o.ev.time>='13:00';
+          if(isAfternoon)botChips.push(chip); else topChips.push(chip);
+        }
+        html+=`<div class="${cls}" style="min-height:40px" onclick="openNew('${day.ds}','gosia')">${topChips.join('')}${botChips.length?`<div class="chips-bot">${botChips.join('')}</div>`:''}`;
+        html+=`</div>`;
+      });
+    }
+
+    // Per-member rows (skip all-members events)
     for(const mem of MEMBERS){
       html+=`<div class="row-label ${mem.id}" style="position:sticky;left:0;z-index:4">${mem.label}</div>`;
       wd.forEach(day=>{
         const isToday=day.ds===todayStr;
         const cls=`day-cell${day.om?' other-month':''}${isToday?' today':''}`;
-        const cellOccs=(idx[mem.id][day.ds]||[]).slice().sort((a,b)=>{
-          const ta=(a.occFrom===day.ds&&a.ev.time)?a.ev.time:'00:00';
-          const tb=(b.occFrom===day.ds&&b.ev.time)?b.ev.time:'00:00';
-          return ta.localeCompare(tb);
-        });
+        const cellOccs=(idx[mem.id][day.ds]||[])
+          .filter(o=>!allMembersEvIds[day.ds].has(o.ev.id))
+          .slice().sort((a,b)=>{
+            const ta=(a.occFrom===day.ds&&a.ev.time)?a.ev.time:'00:00';
+            const tb=(b.occFrom===day.ds&&b.ev.time)?b.ev.time:'00:00';
+            return ta.localeCompare(tb);
+          });
         const topChips=[],botChips=[];
         for(const o of cellOccs){
-          // Multi-day bar styling
-          const isMulti = o.occFrom !== o.occTo;
-          const isStart = o.occFrom === day.ds;
-          const isEnd   = o.occTo   === day.ds;
-          let extraStyle = '';
+          const isMulti=o.occFrom!==o.occTo, isStart=o.occFrom===day.ds, isEnd=o.occTo===day.ds;
+          let extraStyle='';
           if(isMulti){
-            if(isStart)      extraStyle = 'border-radius:4px 0 0 4px;margin-right:-5px;padding-right:1px;';
-            else if(isEnd)   extraStyle = 'border-radius:0 4px 4px 0;margin-left:-5px;padding-left:1px;';
-            else             extraStyle = 'border-radius:0;margin-left:-5px;margin-right:-5px;padding-left:1px;padding-right:1px;';
+            if(isStart)    extraStyle='border-radius:4px 0 0 4px;margin-right:-5px;padding-right:1px;';
+            else if(isEnd) extraStyle='border-radius:0 4px 4px 0;margin-left:-5px;padding-left:1px;';
+            else           extraStyle='border-radius:0;margin-left:-5px;margin-right:-5px;padding-left:1px;padding-right:1px;';
           }
           const chip=makeChipStyled(o,day.ds,extraStyle);
           const isAfternoon=isStart&&o.ev.time&&o.ev.time>='13:00';
@@ -815,6 +911,20 @@ function renderWeek() {
     stickyHtml+=`</div>`;
   });
   stickyHtml+=`</div>`;
+  // ── STATUS DNIA (nad imionami) ──
+  stickyHtml+=`<div style="display:flex;border-bottom:1px solid var(--border);background:#f0ede6">`;
+  weekDays.forEach(d=>{
+    stickyHtml+=`<div style="width:${dayW}px;flex-shrink:0;display:flex;border-left:2px solid #8a8fa8">`;
+    MEMBERS.forEach(mem=>{
+      const statusKey=`status_${mem.id}_${d.ds}`;
+      const status=dayStatuses[statusKey]||'';
+      const statusLabel=status?STATUS_OPTIONS.find(s=>s.val===status)?.emoji:'';
+      stickyHtml+=`<div style="width:${MEM_W}px;flex-shrink:0;text-align:center;font-size:0.9rem;padding:2px 0;border-right:1px solid var(--border);cursor:pointer;min-height:22px" onclick="cycleStatus('${mem.id}','${d.ds}')" title="${STATUS_OPTIONS.find(s=>s.val===status)?.label||'Kliknij aby ustawić status'}">${statusLabel}</div>`;
+    });
+    stickyHtml+=`</div>`;
+  });
+  stickyHtml+=`</div>`;
+  // ── IMIONA ──
   stickyHtml+=`<div style="display:flex;border-bottom:1px solid var(--border);background:var(--surface)">`;
   weekDays.forEach(d=>{
     stickyHtml+=`<div style="width:${dayW}px;flex-shrink:0;display:flex;border-left:2px solid #8a8fa8">`;
@@ -876,7 +986,7 @@ function renderWeek() {
       const width=dayW-6;
       const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
       const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-      html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${width}px" onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+      html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${width}px" onclick="openEdit(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
     });
 
     // Second pass: render per-member events (skip all-members ones)
@@ -903,7 +1013,7 @@ function renderWeek() {
         const leftPx=di*dayW+mi*MEM_W+2;
         const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
         const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-        html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_W-5}px" onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+        html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_W-5}px" onclick="openEdit(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
       });
     });
   });
@@ -1013,7 +1123,7 @@ function renderDay(){
 
     const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
     const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-    html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:3px;width:${gridW2-10}px" onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+    html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:3px;width:${gridW2-10}px" onclick="openEdit(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
   });
 
   // Second pass: per-member events
@@ -1051,7 +1161,7 @@ function renderDay(){
       const leftPx=mi*MEM_COL_W+3;
       const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
       const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-      html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_COL_W-7}px" onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+      html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_COL_W-7}px" onclick="openEdit(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
     });
   });
   html+=`</div>`;
@@ -1189,22 +1299,81 @@ function openNew(ds, personId, hour){
   setTimeout(()=>document.getElementById('ev-title').focus(),180);
 }
 
-function openEdit(e,id){
+// pendingScope: { evId, occDs, action:'edit'|'delete' }
+let pendingScope = null;
+
+function openEdit(e, evId, occDs){
   e.stopPropagation();
-  const ev=events.find(x=>x.id===id); if(!ev)return;
-  editingId=id; resetModal();
-  document.getElementById('modal-title').textContent='Edytuj wydarzenie';
-  document.getElementById('ev-title').value=ev.title;
-  document.getElementById('ev-date-from').value=ev.dateFrom;
-  document.getElementById('ev-date-to').value=ev.dateTo||'';
-  document.getElementById('ev-time').value=ev.time||'';
-  document.getElementById('ev-time-end').value=ev.timeEnd||'';
-  document.getElementById('ev-note').value=ev.note||'';
-  setIcon(ev.icon||'');
-  setImp(ev.importance||'normal');
-  setPersons(ev.persons||[]);
-  document.getElementById('btn-delete').style.display='inline-block';
+  const ev = events.find(x=>x.id===evId);
+  if(!ev) return;
+
   if(ev.recurrence){
+    // Ask: this occurrence or whole series?
+    pendingScope = { evId, occDs, action:'edit' };
+    document.getElementById('scope-title').textContent = 'Edytuj wydarzenie';
+    document.getElementById('scope-overlay').classList.add('open');
+    return;
+  }
+  openEditForm(evId, null);
+}
+
+function scopeChoose(scope){
+  document.getElementById('scope-overlay').classList.remove('open');
+  if(!pendingScope) return;
+  const { evId, occDs, action } = pendingScope;
+  pendingScope = null;
+
+  if(action === 'delete'){
+    if(scope === 'one'){
+      // Add exception date
+      const ev = events.find(x=>x.id===evId);
+      if(ev){ if(!ev.exceptions)ev.exceptions=[]; if(!ev.exceptions.includes(occDs))ev.exceptions.push(occDs); }
+      saveEvents(); closeModal(); render();
+    } else {
+      // Delete whole series
+      events = events.filter(x=>x.id!==evId);
+      saveEvents(); closeModal(); render();
+    }
+    return;
+  }
+
+  // edit
+  if(scope === 'one'){
+    openEditForm(evId, occDs);
+  } else {
+    openEditForm(evId, null);
+  }
+}
+
+function scopeCancel(){
+  document.getElementById('scope-overlay').classList.remove('open');
+  pendingScope = null;
+}
+
+// occDs: if set, editing a single occurrence (will create override event)
+function openEditForm(evId, occDs){
+  const ev = events.find(x=>x.id===evId);
+  if(!ev) return;
+  editingId = evId;
+  editingOccDs = occDs; // null = edit whole series
+  resetModal();
+  document.getElementById('modal-title').textContent = occDs ? 'Edytuj to wystąpienie' : 'Edytuj wydarzenie';
+
+  // For single occurrence, prefill with override data if exists
+  const src = occDs && ev.overrides && ev.overrides[occDs] ? {...ev, ...ev.overrides[occDs]} : ev;
+
+  document.getElementById('ev-title').value = src.title;
+  document.getElementById('ev-date-from').value = occDs || src.dateFrom;
+  document.getElementById('ev-date-to').value = occDs ? '' : (src.dateTo||'');
+  document.getElementById('ev-time').value = src.time||'';
+  document.getElementById('ev-time-end').value = src.timeEnd||'';
+  document.getElementById('ev-note').value = src.note||'';
+  setIcon(src.icon||'');
+  setImp(src.importance||'normal');
+  setPersons(src.persons||[]);
+  document.getElementById('btn-delete').style.display='inline-block';
+
+  if(!occDs && ev.recurrence){
     const rec=ev.recurrence;
     document.getElementById('rec-enabled').checked=true;
     document.getElementById('rec-options').classList.add('visible');
@@ -1219,7 +1388,12 @@ function openEdit(e,id){
   document.getElementById('modal-overlay').classList.add('open');
 }
 
-function closeModal(){ document.getElementById('modal-overlay').classList.remove('open'); editingId=null; }
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('open');
+  editingId=null; editingOccDs=null;
+}
+
+let editingOccDs = null;
 
 function saveEvent(){
   const title=document.getElementById('ev-title').value.trim();
@@ -1234,6 +1408,17 @@ function saveEvent(){
   const note=document.getElementById('ev-note').value.trim()||null;
   const icon=getIcon()||null;
   const importance=getImp();
+
+  // Editing single occurrence of recurring event
+  if(editingId && editingOccDs){
+    const ev=events.find(x=>x.id===editingId);
+    if(ev){
+      if(!ev.overrides) ev.overrides={};
+      ev.overrides[editingOccDs]={title,persons,time,timeEnd,note,icon,importance};
+    }
+    saveEvents(); closeModal(); render();
+    return;
+  }
 
   let recurrence=null;
   if(document.getElementById('rec-enabled').checked){
@@ -1256,7 +1441,26 @@ function saveEvent(){
 }
 
 function deleteEvent(){
-  if(!editingId||!confirm('Usunąć to wydarzenie?'))return;
+  if(!editingId) return;
+  const ev = events.find(x=>x.id===editingId);
+  if(!ev) return;
+
+  if(ev.recurrence && !editingOccDs){
+    // Ask scope
+    pendingScope = { evId: editingId, occDs: null, action:'delete' };
+    document.getElementById('scope-title').textContent = 'Usuń wydarzenie';
+    document.getElementById('modal-overlay').classList.remove('open');
+    document.getElementById('scope-overlay').classList.add('open');
+    return;
+  }
+  if(ev.recurrence && editingOccDs){
+    // Delete just this occurrence
+    if(!ev.exceptions) ev.exceptions=[];
+    if(!ev.exceptions.includes(editingOccDs)) ev.exceptions.push(editingOccDs);
+    saveEvents(); closeModal(); render();
+    return;
+  }
+  if(!confirm('Usunąć to wydarzenie?')) return;
   events=events.filter(x=>x.id!==editingId);
   saveEvents(); closeModal(); render();
 }
@@ -1339,6 +1543,7 @@ function handlePinComplete(){
 
 /* ===== INIT ===== */
 (function(){
+  loadStatuses();
   const t=new Date();
   currentYear=t.getFullYear(); currentMonth=t.getMonth();
   currentWeekMonday=getMondayOf(t);
