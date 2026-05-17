@@ -683,7 +683,7 @@ function getOccurrencesInRange(rangeFromDs, rangeToDs) {
           if(!isException && occ<=RT&&occTo>=RF){
             // Apply override if exists
             const override = ev.overrides && ev.overrides[occDs];
-            const evEff = override ? {...ev, ...override} : ev;
+            const evEff = override ? {...ev, ...override, id:ev.id} : ev;
             const persons = evEff.persons || ev.persons;
             for(const p of persons) result.push({ev:evEff, evBase:ev, person:p, occFrom:occDs, occTo:toDateStr(occTo)});
           }
@@ -986,7 +986,7 @@ function renderWeek() {
       const width=dayW-6;
       const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
       const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-      html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${width}px" onclick="openEdit(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+      html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${width}px" onclick="openEdit(event,'${o.ev.id}','${d.ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
     });
 
     // Second pass: render per-member events (skip all-members ones)
@@ -1013,7 +1013,7 @@ function renderWeek() {
         const leftPx=di*dayW+mi*MEM_W+2;
         const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
         const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-        html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_W-5}px" onclick="openEdit(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+        html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_W-5}px" onclick="openEdit(event,'${o.ev.id}','${d.ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
       });
     });
   });
