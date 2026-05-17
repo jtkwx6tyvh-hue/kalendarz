@@ -120,7 +120,7 @@
   }
   .event-chip:hover { opacity: 0.78; }
   .chip-time  { display: block; font-size: 0.58rem; line-height: 1.2; opacity: 0.88; }
-  .chip-title { display: block; font-size: 0.72rem; line-height: 1.3; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip-title { display: block; font-size: 0.72rem; line-height: 1.3; font-weight: 500; white-space: normal; word-break: break-word; }
   .event-chip.gosia    { background: var(--gosia);    color: #fff; }
   .event-chip.grzesiek { background: var(--grzesiek); color: #fff; }
   .event-chip.adas     { background: var(--adas);     color: #fff; }
@@ -203,7 +203,7 @@
   .week-event.adas     { background: var(--adas);     color: #fff; }
   .week-event.tymek    { background: var(--tymek);    color: #5a4a20; }
   .week-event .chip-time  { font-size: 0.56rem; opacity: 0.9; }
-  .week-event .chip-title { font-size: 0.68rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .week-event .chip-title { font-size: 0.68rem; font-weight: 500; white-space: normal; word-break: break-word; }
 
   /* all-day strip at top of week view */
   .week-allday {
@@ -345,8 +345,8 @@
   <h1>📅 Nasz Kalendarz</h1>
   <div class="nav-controls">
     <div class="view-toggle">
-      <button id="btn-month" class="active" onclick="setView('month')">Miesiąc</button>
-      <button id="btn-week"  onclick="setView('week')">Tydzień</button>
+      <button id="btn-month" onclick="setView('month')">Miesiąc</button>
+      <button id="btn-week"  class="active" onclick="setView('week')">Tydzień</button>
       <button id="btn-day"   onclick="setView('day')">Dzień</button>
     </div>
     <button onclick="navigate(-1)">‹</button>
@@ -518,7 +518,7 @@ const HOURS = Array.from({length:24},(_,i)=>i);
 
 // ── GLOBAL STATE (musi być przed Firebase callbackiem) ──
 let currentYear, currentMonth, currentWeekMonday, currentDay;
-let currentView = 'month';
+let currentView = 'week';
 let events = [];
 let editingId = null;
 
@@ -612,11 +612,15 @@ function buildIdx(occs, rangeFromDs, rangeToDs){
 
 /* ===== CHIP HTML ===== */
 function makeChip(o, ds, cls='event-chip') {
+  return makeChipStyled(o, ds, '', cls);
+}
+function makeChipStyled(o, ds, extraStyle='', cls='event-chip') {
   const isStart = o.occFrom===ds;
   const timeStr = (isStart&&o.ev.time) ? `${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}` : '';
   const timeHtml = timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-  const titleText= isStart?o.ev.title:'↦';
-  return `<span class="${cls} ${o.person}" onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${titleText}</span></span>`;
+  const titleText= isStart?o.ev.title:'';
+  const styleAttr = extraStyle ? ` style="${extraStyle}"` : '';
+  return `<span class="${cls} ${o.person}"${styleAttr} onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${titleText}</span></span>`;
 }
 
 /* ===== MONTH RENDER ===== */
@@ -667,8 +671,18 @@ function renderMonth() {
         });
         const topChips=[],botChips=[];
         for(const o of cellOccs){
-          const chip=makeChip(o,day.ds);
-          const isAfternoon=o.occFrom===day.ds&&o.ev.time&&o.ev.time>='13:00';
+          // Multi-day bar styling
+          const isMulti = o.occFrom !== o.occTo;
+          const isStart = o.occFrom === day.ds;
+          const isEnd   = o.occTo   === day.ds;
+          let extraStyle = '';
+          if(isMulti){
+            if(isStart)      extraStyle = 'border-radius:4px 0 0 4px;margin-right:-5px;padding-right:1px;';
+            else if(isEnd)   extraStyle = 'border-radius:0 4px 4px 0;margin-left:-5px;padding-left:1px;';
+            else             extraStyle = 'border-radius:0;margin-left:-5px;margin-right:-5px;padding-left:1px;padding-right:1px;';
+          }
+          const chip=makeChipStyled(o,day.ds,extraStyle);
+          const isAfternoon=isStart&&o.ev.time&&o.ev.time>='13:00';
           if(isAfternoon)botChips.push(chip); else topChips.push(chip);
         }
         const topHtml=`<div class="chips-top">${topChips.join('')}</div>`;
@@ -774,19 +788,47 @@ function renderWeek() {
     MEMBERS.forEach((mem,mi)=>{
       const timed=(idx[mem.id][d.ds]||[]).filter(o=>o.ev.time);
       timed.forEach(o=>{
-        const [sh,sm]=o.ev.time.split(':').map(Number);
-        if(sh<7||sh>22) return;
-        const topPx=(sh-7+sm/60)*SLOT_H;
-        let heightPx=SLOT_H;
-        if(o.ev.timeEnd){
-          const [eh,em]=o.ev.timeEnd.split(':').map(Number);
-          heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);
+        const isMultiDay = o.occFrom !== o.occTo;
+        const isStart = o.occFrom === d.ds;
+        const isEnd   = o.occTo   === d.ds;
+
+        let topPx, heightPx;
+
+        if(!isMultiDay){
+          // Single day event – use exact times
+          const [sh,sm]=o.ev.time.split(':').map(Number);
+          if(sh<7||sh>22) return;
+          topPx=(sh-7+sm/60)*SLOT_H;
+          heightPx=SLOT_H;
+          if(o.ev.timeEnd){
+            const [eh,em]=o.ev.timeEnd.split(':').map(Number);
+            heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);
+          }
+        } else if(isStart){
+          // First day: start at event time, go to end of day
+          const [sh,sm]=o.ev.time.split(':').map(Number);
+          if(sh<7) { topPx=0; } else if(sh>22) return;
+          else topPx=(sh-7+sm/60)*SLOT_H;
+          heightPx=WEEK_HOURS.length*SLOT_H - topPx;
+        } else if(isEnd){
+          // Last day: start from top, end at event time
+          topPx=0;
+          if(o.ev.timeEnd){
+            const [eh,em]=o.ev.timeEnd.split(':').map(Number);
+            heightPx=Math.max(20,(eh-7+em/60)*SLOT_H);
+          } else {
+            heightPx=WEEK_HOURS.length*SLOT_H;
+          }
+        } else {
+          // Middle day: full height
+          topPx=0;
+          heightPx=WEEK_HOURS.length*SLOT_H;
         }
+
         const leftPx=di*dayW+mi*MEM_W+2;
-        const isStart=o.occFrom===d.ds;
         const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
         const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-        const titleText=isStart?o.ev.title:'↦';
+        const titleText=isStart?o.ev.title:'';
         html+=`<div class="week-event ${mem.id}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_W-5}px" onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${titleText}</span></div>`;
       });
     });
@@ -872,19 +914,35 @@ function renderDay(){
   MEMBERS.forEach((mem,mi)=>{
     const timed=(idx[mem.id][ds]||[]).filter(o=>o.ev.time);
     timed.forEach(o=>{
-      const [sh,sm]=o.ev.time.split(':').map(Number);
-      if(sh<7||sh>22) return;
-      const topPx=(sh-7+sm/60)*SLOT_H;
-      let heightPx=SLOT_H;
-      if(o.ev.timeEnd){
-        const [eh,em]=o.ev.timeEnd.split(':').map(Number);
-        heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);
+      const isMultiDay = o.occFrom !== o.occTo;
+      const isStart = o.occFrom === ds;
+      const isEnd   = o.occTo   === ds;
+
+      let topPx, heightPx;
+      if(!isMultiDay){
+        const [sh,sm]=o.ev.time.split(':').map(Number);
+        if(sh<7||sh>22) return;
+        topPx=(sh-7+sm/60)*SLOT_H;
+        heightPx=SLOT_H;
+        if(o.ev.timeEnd){
+          const [eh,em]=o.ev.timeEnd.split(':').map(Number);
+          heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);
+        }
+      } else if(isStart){
+        const [sh,sm]=o.ev.time.split(':').map(Number);
+        topPx=sh<7?0:(sh-7+sm/60)*SLOT_H;
+        heightPx=WEEK_HOURS.length*SLOT_H-topPx;
+      } else if(isEnd){
+        topPx=0;
+        heightPx=o.ev.timeEnd ? Math.max(20,(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return (eh-7+em/60)*SLOT_H;})()) : WEEK_HOURS.length*SLOT_H;
+      } else {
+        topPx=0; heightPx=WEEK_HOURS.length*SLOT_H;
       }
+
       const leftPx=mi*MEM_COL_W+3;
-      const isStart=o.occFrom===ds;
       const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
       const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-      const titleText=isStart?o.ev.title:'↦';
+      const titleText=isStart?o.ev.title:'';
       html+=`<div class="week-event ${mem.id}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_COL_W-7}px" onclick="openEdit(event,'${o.ev.id}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${titleText}</span></div>`;
     });
   });
