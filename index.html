@@ -366,7 +366,7 @@
   }
 
   /* Day view swipe container */
-  #day-view { touch-action: pan-y; user-select: none; }
+  #day-view { touch-action: pan-y; user-select: none; overscroll-behavior-x: none; overflow-x: hidden; }
 
   /* Day label badge */
   .day-rel-label {
@@ -473,7 +473,7 @@
       <!-- right: sticky header + scrollable grid -->
       <div style="flex:1;overflow:hidden">
         <div id="day-sticky" style="position:sticky;top:0;z-index:20;background:var(--surface);overflow:hidden"></div>
-        <div id="day-scroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <div id="day-scroll" style="overflow-x:hidden;overscroll-behavior-x:none">
           <div id="day-content"></div>
         </div>
       </div>
@@ -1103,7 +1103,8 @@ function renderDay(){
 
   const idx = buildIdx(getOccurrencesInRange(ds,ds), ds, ds);
 
-  const MEM_COL_W = window.innerWidth < 640 ? 82 : 120;
+  const TIME_COL = 46; // px for time label column
+  const MEM_COL_W = Math.floor((window.innerWidth - TIME_COL) / MEMBERS.length);
   const colors = {gosia:'var(--gosia)',grzesiek:'var(--grzesiek)',adas:'var(--adas)',tymek:'var(--tymek)'};
   const gridW2 = MEMBERS.length * MEM_COL_W;
   const hasAllDay = MEMBERS.some(m=>(idx[m.id][ds]||[]).some(o=>!o.ev.time));
@@ -1116,12 +1117,12 @@ function renderDay(){
   document.getElementById('day-times').innerHTML=timesHtml;
 
   // ── STICKY HEADER (no TIME_W) ──
-  let stickyHtml = `<div style="min-width:${gridW2}px">`;
+  let stickyHtml = `<div style="width:100%;display:flex;flex-direction:column">`;
   stickyHtml += `<div style="display:flex;border-bottom:2px solid var(--border);background:var(--surface)">`;
   MEMBERS.forEach(mem=>{
     const textCol = mem.id==='tymek'?'#5a4a20':'#fff';
-    stickyHtml+=`<div style="width:${MEM_COL_W}px;flex-shrink:0;text-align:center;padding:8px 4px;border-left:1px solid var(--border);background:${colors[mem.id]};color:${textCol}">`;
-    stickyHtml+=`<div style="font-size:0.95rem;font-weight:600">${mem.label}</div>`;
+    stickyHtml+=`<div style="flex:1;min-width:0;text-align:center;padding:8px 2px;border-left:1px solid var(--border);background:${colors[mem.id]};color:${textCol}">`;
+    stickyHtml+=`<div style="font-size:0.85rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mem.label}</div>`;
     stickyHtml+=`</div>`;
   });
   stickyHtml+=`</div>`;
@@ -1129,7 +1130,7 @@ function renderDay(){
     stickyHtml+=`<div style="display:flex;border-bottom:1px solid var(--border);background:#f7f5f1">`;
     MEMBERS.forEach(mem=>{
       const allDay=(idx[mem.id][ds]||[]).filter(o=>!o.ev.time);
-      stickyHtml+=`<div style="width:${MEM_COL_W}px;flex-shrink:0;border-left:1px solid var(--border);padding:2px 4px;min-height:24px" onclick="openNew('${ds}','${mem.id}')">`;
+      stickyHtml+=`<div style="flex:1;min-width:0;border-left:1px solid var(--border);padding:2px 4px;min-height:24px" onclick="openNew('${ds}','${mem.id}')">`;
       for(const o of allDay) stickyHtml+=makeChip(o,ds);
       stickyHtml+=`</div>`;
     });
@@ -1139,13 +1140,13 @@ function renderDay(){
   document.getElementById('day-sticky').innerHTML=stickyHtml;
 
   // ── SCROLLABLE GRID (no TIME_W) ──
-  let html = `<div style="min-width:${gridW2}px;position:relative">`;
+  let html = `<div style="width:100%;position:relative">`;
   html+=`<div style="display:flex;flex-direction:column">`;
   WEEK_HOURS.forEach(hour=>{
     const bg = isToday ? 'background:#fffdf4;' : '';
     html+=`<div style="display:flex;height:${SLOT_H}px;border-bottom:1px solid var(--border)">`;
     MEMBERS.forEach(mem=>{
-      html+=`<div style="width:${MEM_COL_W}px;flex-shrink:0;border-left:1px solid var(--border);${bg}cursor:pointer" onclick="openNew('${ds}','${mem.id}',${hour})"></div>`;
+      html+=`<div style="flex:1;min-width:0;border-left:1px solid var(--border);${bg}cursor:pointer" onclick="openNew('${ds}','${mem.id}',${hour})"></div>`;
     });
     html+=`</div>`;
   });
@@ -1178,7 +1179,7 @@ function renderDay(){
 
     const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
     const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-    html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:3px;width:${gridW2-10}px" onclick="openPreview(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+    html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:3px;right:3px;width:auto" onclick="openPreview(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
   });
 
   // Second pass: per-member events
@@ -1222,16 +1223,11 @@ function renderDay(){
   html+=`</div>`;
   document.getElementById('day-content').innerHTML=html;
 
-  // Sync corner height + scroll
+  // Sync corner height
   requestAnimationFrame(()=>{
     const h = document.getElementById('day-sticky').offsetHeight;
     document.getElementById('day-corner').style.height = h+'px';
   });
-  const dayScroll = document.getElementById('day-scroll');
-  const daySticky = document.getElementById('day-sticky');
-  dayScroll.onscroll = function(){
-    if(daySticky.firstChild) daySticky.firstChild.style.marginLeft='-'+dayScroll.scrollLeft+'px';
-  };
 }
 
 /* ===== VIEW CONTROL ===== */
