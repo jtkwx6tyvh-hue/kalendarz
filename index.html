@@ -365,6 +365,16 @@
     .two-col { grid-template-columns: 1fr; }
   }
 
+  /* Day view week strip */
+  .dws-cell { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; padding:2px 0; }
+  .dws-name { font-size:0.62rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); }
+  .dws-num  { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+              font-size:0.92rem; font-weight:500; color:var(--text); transition:background 0.15s; }
+  .dws-cell:hover .dws-num { background:var(--border); }
+  .dws-cell.active .dws-num { background:var(--gosia); color:#fff; font-weight:700; }
+  .dws-cell.is-today .dws-name { color:var(--gosia); }
+  .dws-cell.active.is-today .dws-num { background:var(--gosia); }
+
   /* Day view swipe container */
   #day-view { touch-action: pan-y; user-select: none; overscroll-behavior-x: none; overflow-x: hidden; }
 
@@ -464,6 +474,7 @@
 
   <!-- DAY VIEW -->
   <div id="day-view">
+    <div id="day-week-strip" style="display:flex;background:var(--surface);border-bottom:2px solid var(--border);padding:6px 0 4px;user-select:none"></div>
     <div id="day-inner" style="display:flex;overflow:hidden">
       <!-- left: time column -->
       <div style="flex-shrink:0;width:46px;z-index:21;display:flex;flex-direction:column">
@@ -1082,8 +1093,36 @@ function renderWeek() {
 
 function slotsHtml2(){} // replaced by renderWeek inline
 
+/* ===== DAY WEEK STRIP ===== */
+function renderDayWeekStrip() {
+  const todayStr = toDateStr(new Date());
+  const activeDs = toDateStr(currentDay);
+  const monday   = getMondayOf(currentDay);
+  let html = '';
+  for(let i=0;i<7;i++){
+    const dt  = addDays(monday, i);
+    const ds  = toDateStr(dt);
+    const name= DAY_NAMES[i]; // Pn Wt Śr Cz Pt So Nd
+    const num = dt.getDate();
+    const isToday  = ds === todayStr  ? ' is-today' : '';
+    const isActive = ds === activeDs  ? ' active'   : '';
+    html += `<div class="dws-cell${isActive}${isToday}" onclick="jumpToDay('${ds}')">`;
+    html += `<span class="dws-name">${name}</span>`;
+    html += `<span class="dws-num">${num}</span>`;
+    html += `</div>`;
+  }
+  document.getElementById('day-week-strip').innerHTML = html;
+}
+
+function jumpToDay(ds){
+  const [y,m,d] = ds.split('-').map(Number);
+  currentDay = new Date(y, m-1, d);
+  renderDay();
+}
+
 /* ===== DAY RENDER ===== */
 function renderDay(){
+  renderDayWeekStrip();
   const ds = toDateStr(currentDay);
   const todayStr = toDateStr(new Date());
   const isToday = ds === todayStr;
@@ -1228,9 +1267,10 @@ function renderDay(){
     const h = document.getElementById('day-sticky').offsetHeight;
     document.getElementById('day-corner').style.height = h+'px';
     // Set day-inner height to fill viewport below header+legend
-    const hdr = document.querySelector('header');
-    const leg = document.querySelector('.legend');
-    const usedH = (hdr ? hdr.offsetHeight : 0) + (leg ? leg.offsetHeight : 0);
+    const hdr   = document.querySelector('header');
+    const leg   = document.querySelector('.legend');
+    const strip = document.getElementById('day-week-strip');
+    const usedH = (hdr ? hdr.offsetHeight : 0) + (leg ? leg.offsetHeight : 0) + (strip ? strip.offsetHeight : 0);
     document.getElementById('day-inner').style.height = (window.innerHeight - usedH) + 'px';
   });
   const dayScroll = document.getElementById('day-scroll');
