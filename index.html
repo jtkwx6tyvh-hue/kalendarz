@@ -426,7 +426,7 @@
   <div class="nav-controls">
     <div class="view-toggle">
       <button id="btn-month" onclick="setView('month')">Miesiąc</button>
-      <button id="btn-week"  class="active" onclick="setView('week')">Tydzień</button>
+      <button id="btn-week"  class="active" onclick="setView('week')">2 dni</button>
       <button id="btn-day"   onclick="setView('day')">Dzień</button>
     </div>
     <button onclick="navigate(-1)">‹</button>
@@ -453,18 +453,19 @@
     <p class="add-hint">Kliknij wydarzenie aby je edytować lub usunąć</p>
   </div>
 
-  <!-- WEEK VIEW -->
+  <!-- WEEK VIEW (2-day) -->
   <div id="week-view">
-    <div style="display:flex">
-      <!-- left: sticky time + header corner -->
-      <div style="flex-shrink:0;width:46px;z-index:21">
-        <div id="week-corner" style="position:sticky;top:0;background:var(--surface);z-index:22"></div>
-        <div id="week-times" style="background:var(--surface);border-right:1px solid var(--border)"></div>
+    <div id="week-week-strip" style="display:flex;background:var(--surface);border-bottom:2px solid var(--border);padding:6px 0 4px;user-select:none"></div>
+    <div id="week-inner" style="display:flex;overflow:hidden">
+      <!-- left: time column -->
+      <div style="flex-shrink:0;width:46px;z-index:21;display:flex;flex-direction:column">
+        <div id="week-corner" style="background:var(--surface);z-index:22;flex-shrink:0"></div>
+        <div id="week-times" style="background:var(--surface);border-right:1px solid var(--border);overflow-y:hidden;flex:1"></div>
       </div>
       <!-- right: sticky header + scrollable grid -->
-      <div style="flex:1;overflow:hidden">
-        <div id="week-sticky" style="position:sticky;top:0;z-index:20;background:var(--surface);overflow:hidden"></div>
-        <div id="week-scroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <div style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+        <div id="week-sticky" style="z-index:20;background:var(--surface);flex-shrink:0"></div>
+        <div id="week-scroll" style="overflow-x:hidden;overflow-y:auto;overscroll-behavior-x:none;flex:1">
           <div id="week-members"></div>
         </div>
       </div>
@@ -915,183 +916,226 @@ const SLOT_H = 52; // px per hour slot
 const TIME_W = 46; // px for time label column
 const MEM_W  = 80; // px per member sub-column inside a day
 
+function renderWeekStrip() {
+  const todayStr  = toDateStr(new Date());
+  const monday    = getMondayOf(currentWeekMonday);
+  const day0Str   = toDateStr(currentWeekMonday);
+  let html = '';
+  for(let i=0;i<7;i++){
+    const dt  = addDays(monday, i);
+    const ds  = toDateStr(dt);
+    const name= DAY_NAMES[i];
+    const num = dt.getDate();
+    const isToday  = ds===todayStr  ? ' is-today' : '';
+    const isActive = ds===day0Str   ? ' active'   : '';
+    html += `<div class="dws-cell${isActive}${isToday}" onclick="jumpToWeek('${ds}')">`;
+    html += `<span class="dws-name">${name}</span>`;
+    html += `<span class="dws-num">${num}</span>`;
+    html += `</div>`;
+  }
+  document.getElementById('week-week-strip').innerHTML = html;
+}
+
+function jumpToWeek(ds){
+  const [y,m,d] = ds.split('-').map(Number);
+  currentWeekMonday = new Date(y, m-1, d);
+  renderWeek();
+}
+
 function renderWeek() {
-  const monday = currentWeekMonday;
-  const sunday = addDays(monday,6);
-  const mStr=toDateStr(monday), sStr=toDateStr(sunday);
+  const DAYS = 2;
+  const day0  = currentWeekMonday;
+  const day1  = addDays(day0, DAYS-1);
+  const ds0   = toDateStr(day0), ds1 = toDateStr(day1);
 
-  const mLabel=MONTH_NAMES[monday.getMonth()];
-  const sLabel=MONTH_NAMES[sunday.getMonth()];
-  const label=mLabel===sLabel
-    ? `${monday.getDate()}–${sunday.getDate()} ${mLabel} ${monday.getFullYear()}`
-    : `${monday.getDate()} ${mLabel} – ${sunday.getDate()} ${sLabel} ${sunday.getFullYear()}`;
-  document.getElementById('period-label').textContent=label;
+  // Period label
+  const m0 = MONTH_NAMES[day0.getMonth()], m1 = MONTH_NAMES[day1.getMonth()];
+  const label = m0===m1
+    ? `${day0.getDate()}–${day1.getDate()} ${m0} ${day0.getFullYear()}`
+    : `${day0.getDate()} ${m0} – ${day1.getDate()} ${m1} ${day1.getFullYear()}`;
+  document.getElementById('period-label').textContent = label;
 
-  const todayStr=toDateStr(new Date());
-  const weekDays=Array.from({length:7},(_,i)=>{
-    const dt=addDays(monday,i);
-    return {dt, ds:toDateStr(dt), isToday:toDateStr(dt)===todayStr, dow:i};
+  renderWeekStrip();
+
+  const todayStr = toDateStr(new Date());
+  const visibleDays = Array.from({length:DAYS},(_,i)=>{
+    const dt=addDays(day0,i);
+    return {dt, ds:toDateStr(dt), isToday:toDateStr(dt)===todayStr, idx:i};
   });
 
-  const idx=buildIdx(getOccurrencesInRange(mStr,sStr),mStr,sStr);
+  const idx = buildIdx(getOccurrencesInRange(ds0,ds1), ds0, ds1);
 
-  const dayW = MEMBERS.length * MEM_W;
-  const gridW = 7 * dayW; // grid width WITHOUT time column
+  const TIME_COL = 46;
+  const DAY_W    = Math.floor((window.innerWidth - TIME_COL) / DAYS);
+  const MEM_W2   = Math.floor(DAY_W / MEMBERS.length);
 
-  // ── TIME COLUMN + CORNER (left sticky strip) ──
-  let timesHtml = '';
+  // ── TIME COLUMN ──
+  let timesHtml='';
   WEEK_HOURS.forEach(hour=>{
     timesHtml+=`<div style="height:${SLOT_H}px;border-bottom:1px solid var(--border);font-size:0.6rem;color:var(--muted);padding:3px 4px 0 0;text-align:right">${String(hour).padStart(2,'0')}:00</div>`;
   });
   document.getElementById('week-times').innerHTML=timesHtml;
 
-  // Corner height = sticky header height (set after rendering header)
-  // ── STICKY HEADER (no TIME_W) ──
-  let stickyHtml = `<div style="min-width:${gridW}px">`;
-  stickyHtml += `<div style="display:flex;border-bottom:2px solid var(--border);background:var(--surface)">`;
-  weekDays.forEach(d=>{
-    const bg = d.isToday ? 'background:var(--today-bg);' : '';
-    stickyHtml += `<div style="width:${dayW}px;flex-shrink:0;text-align:center;padding:6px 2px;border-left:2px solid var(--grzesiek);${bg}">`;
-    stickyHtml += `<div style="font-size:1.1rem;font-weight:700;color:${d.isToday?'var(--gosia)':'var(--text)'}">${d.dt.getDate()}</div>`;
-    stickyHtml += `<div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${DAY_NAMES[d.dow]}</div>`;
-    stickyHtml += `</div>`;
+  // ── STICKY HEADER ──
+  const hasAllDay = visibleDays.some(d=>MEMBERS.some(m=>(idx[m.id][d.ds]||[]).some(o=>!o.ev.time)));
+  let sh = `<div style="width:100%;display:flex;flex-direction:column">`;
+
+  // Row 1: day name + date
+  sh += `<div style="display:flex;border-bottom:1px solid var(--border);background:var(--surface)">`;
+  visibleDays.forEach(d=>{
+    const color = d.isToday ? 'var(--gosia)' : 'var(--text)';
+    sh += `<div style="flex:1;min-width:0;text-align:center;padding:5px 2px;border-left:2px solid var(--grzesiek);background:${d.isToday?'var(--today-bg)':'var(--surface)'}">`;
+    sh += `<div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${DAY_NAMES[d.idx]}</div>`;
+    sh += `<div style="font-size:1.05rem;font-weight:700;color:${color}">${d.dt.getDate()}</div>`;
+    sh += `</div>`;
   });
-  stickyHtml += `</div>`;
-  stickyHtml += `<div style="display:flex;border-bottom:1px solid var(--border);background:#f7f5f1">`;
-  weekDays.forEach(d=>{
-    const bg=d.isToday?'background:var(--today-bg);':'';
-    stickyHtml+=`<div style="width:${dayW}px;flex-shrink:0;display:flex;border-left:2px solid #8a8fa8;${bg}">`;
-    MEMBERS.forEach(mem=>{
-      const allDay=(idx[mem.id][d.ds]||[]).filter(o=>!o.ev.time);
-      stickyHtml+=`<div style="width:${MEM_W}px;flex-shrink:0;padding:2px 2px;border-right:1px solid var(--border);min-height:22px" onclick="openNew('${d.ds}','${mem.id}')">`;
-      for(const o of allDay) stickyHtml+=makeChip(o,d.ds);
-      stickyHtml+=`</div>`;
+  sh += `</div>`;
+
+  // Row 2: all-day events
+  if(hasAllDay){
+    sh += `<div style="display:flex;border-bottom:1px solid var(--border);background:#f7f5f1">`;
+    visibleDays.forEach(d=>{
+      sh += `<div style="flex:1;min-width:0;display:flex;border-left:2px solid #8a8fa8;${d.isToday?'background:var(--today-bg)':''}">`;
+      MEMBERS.forEach(mem=>{
+        const allDay=(idx[mem.id][d.ds]||[]).filter(o=>!o.ev.time);
+        sh += `<div style="flex:1;min-width:0;padding:2px;border-right:1px solid var(--border);min-height:22px" onclick="openNew('${d.ds}','${mem.id}')">`;
+        for(const o of allDay) sh+=makeChip(o,d.ds);
+        sh += `</div>`;
+      });
+      sh += `</div>`;
     });
-    stickyHtml+=`</div>`;
-  });
-  stickyHtml+=`</div>`;
-  // ── STATUS DNIA (nad imionami) ──
-  stickyHtml+=`<div style="display:flex;border-bottom:1px solid var(--border);background:#f0ede6">`;
-  weekDays.forEach(d=>{
-    stickyHtml+=`<div style="width:${dayW}px;flex-shrink:0;display:flex;border-left:2px solid #8a8fa8">`;
+    sh += `</div>`;
+  }
+
+  // Row 3: status
+  sh += `<div style="display:flex;border-bottom:1px solid var(--border);background:#f0ede6">`;
+  visibleDays.forEach(d=>{
+    sh += `<div style="flex:1;min-width:0;display:flex;border-left:2px solid #8a8fa8">`;
     MEMBERS.forEach(mem=>{
       const statusKey=`status_${mem.id}_${d.ds}`;
       const status=dayStatuses[statusKey]||'';
       const statusLabel=status?STATUS_OPTIONS.find(s=>s.val===status)?.emoji:'';
-      stickyHtml+=`<div style="width:${MEM_W}px;flex-shrink:0;text-align:center;font-size:0.9rem;padding:2px 0;border-right:1px solid var(--border);cursor:pointer;min-height:22px" onclick="cycleStatus('${mem.id}','${d.ds}')" title="${STATUS_OPTIONS.find(s=>s.val===status)?.label||'Kliknij aby ustawić status'}">${statusLabel}</div>`;
+      sh += `<div style="flex:1;min-width:0;text-align:center;font-size:0.9rem;padding:2px 0;border-right:1px solid var(--border);cursor:pointer;min-height:22px" onclick="cycleStatus('${mem.id}','${d.ds}')" title="${STATUS_OPTIONS.find(s=>s.val===status)?.label||'Kliknij aby ustawić status'}">${statusLabel}</div>`;
     });
-    stickyHtml+=`</div>`;
+    sh += `</div>`;
   });
-  stickyHtml+=`</div>`;
-  // ── IMIONA ──
-  stickyHtml+=`<div style="display:flex;border-bottom:1px solid var(--border);background:var(--surface)">`;
-  weekDays.forEach(d=>{
-    stickyHtml+=`<div style="width:${dayW}px;flex-shrink:0;display:flex;border-left:2px solid #8a8fa8">`;
+  sh += `</div>`;
+
+  // Row 4: member name bars
+  sh += `<div style="display:flex;border-bottom:2px solid var(--border);background:var(--surface)">`;
+  visibleDays.forEach(d=>{
+    sh += `<div style="flex:1;min-width:0;display:flex;border-left:2px solid #8a8fa8">`;
     MEMBERS.forEach(mem=>{
       const colors={gosia:'var(--gosia)',grzesiek:'var(--grzesiek)',adas:'var(--adas)',tymek:'var(--tymek)'};
       const textCol=mem.id==='tymek'?'#5a4a20':'#fff';
-      stickyHtml+=`<div style="width:${MEM_W}px;flex-shrink:0;background:${colors[mem.id]};color:${textCol};font-size:0.6rem;font-weight:600;text-align:center;padding:2px 0;letter-spacing:.06em;text-transform:uppercase;border-right:1px solid rgba(0,0,0,.08)">${mem.label}</div>`;
+      sh += `<div style="flex:1;min-width:0;background:${colors[mem.id]};color:${textCol};font-size:0.6rem;font-weight:600;text-align:center;padding:2px 0;letter-spacing:.06em;text-transform:uppercase;border-right:1px solid rgba(0,0,0,.08);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mem.label}</div>`;
     });
-    stickyHtml+=`</div>`;
+    sh += `</div>`;
   });
-  stickyHtml+=`</div></div>`;
-  document.getElementById('week-sticky').innerHTML=stickyHtml;
+  sh += `</div></div>`;
+  document.getElementById('week-sticky').innerHTML=sh;
 
-  // ── SCROLLABLE GRID (no TIME_W) ──
-  let html = `<div style="min-width:${gridW}px;position:relative">`;
-  html+=`<div style="display:flex;flex-direction:column">`;
+  // ── SCROLLABLE GRID ──
+  let html = `<div style="width:100%;position:relative">`;
+  html += `<div style="display:flex;flex-direction:column">`;
   WEEK_HOURS.forEach(hour=>{
-    html+=`<div style="display:flex;height:${SLOT_H}px;border-bottom:1px solid var(--border)">`;
-    weekDays.forEach(d=>{
+    html += `<div style="display:flex;height:${SLOT_H}px;border-bottom:1px solid var(--border)">`;
+    visibleDays.forEach(d=>{
       const bg=d.isToday?'background:#fffdf4;':'';
-      html+=`<div style="width:${dayW}px;flex-shrink:0;display:flex;border-left:2px solid #8a8fa8;${bg}">`;
+      html += `<div style="flex:1;min-width:0;display:flex;border-left:2px solid #8a8fa8;${bg}">`;
       MEMBERS.forEach(mem=>{
-        html+=`<div style="width:${MEM_W}px;flex-shrink:0;border-right:1px solid var(--border);cursor:pointer" onclick="openNew('${d.ds}','${mem.id}',${hour})"></div>`;
+        html += `<div style="flex:1;min-width:0;border-right:1px solid var(--border);cursor:pointer" onclick="openNew('${d.ds}','${mem.id}',${hour})"></div>`;
       });
-      html+=`</div>`;
+      html += `</div>`;
     });
-    html+=`</div>`;
+    html += `</div>`;
   });
-  html+=`</div>`;
+  html += `</div>`;
+
+  // Events (absolute positioned — need px values)
   const allMemberIds = MEMBERS.map(m=>m.id).sort().join(',');
   const renderedEvIds = new Set();
 
-  weekDays.forEach((d,di)=>{
-    // First pass: render all-members events as one wide block
+  visibleDays.forEach((d,di)=>{
+    const dayLeft = di * DAY_W;
+
+    // All-members events
     const dayOccs = idx[MEMBERS[0].id][d.ds]||[];
     dayOccs.forEach(o=>{
       if(!o.ev.time) return;
-      const allForAll = MEMBERS.every(m=>(idx[m.id][d.ds]||[]).some(x=>x.ev.id===o.ev.id));
+      const allForAll=MEMBERS.every(m=>(idx[m.id][d.ds]||[]).some(x=>x.ev.id===o.ev.id));
       if(!allForAll) return;
-      const evKey = d.ds+'|'+o.ev.id;
+      const evKey=d.ds+'|'+o.ev.id;
       if(renderedEvIds.has(evKey)) return;
       renderedEvIds.add(evKey);
 
       const isMultiDay=o.occFrom!==o.occTo, isStart=o.occFrom===d.ds, isEnd=o.occTo===d.ds;
       let topPx,heightPx;
       if(!isMultiDay){
-        const [sh,sm]=o.ev.time.split(':').map(Number);
-        if(sh<7||sh>22) return;
-        topPx=(sh-7+sm/60)*SLOT_H; heightPx=SLOT_H;
-        if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);}
+        const [sh2,sm]=o.ev.time.split(':').map(Number);
+        if(sh2<7||sh2>22) return;
+        topPx=(sh2-7+sm/60)*SLOT_H; heightPx=SLOT_H;
+        if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh2-sm/60)*SLOT_H);}
       } else if(isStart){
-        const [sh,sm]=o.ev.time.split(':').map(Number);
-        topPx=sh<7?0:(sh-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
+        const [sh2,sm]=o.ev.time.split(':').map(Number);
+        topPx=sh2<7?0:(sh2-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
       } else if(isEnd){
         topPx=0; heightPx=o.ev.timeEnd?(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return Math.max(20,(eh-7+em/60)*SLOT_H);})():WEEK_HOURS.length*SLOT_H;
       } else { topPx=0; heightPx=WEEK_HOURS.length*SLOT_H; }
 
-      const leftPx=di*dayW+2;
-      const width=dayW-6;
       const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
       const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-      html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${width}px" onclick="openPreview(event,'${o.ev.id}','${d.ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+      html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${dayLeft+2}px;width:${DAY_W-6}px" onclick="openPreview(event,'${o.ev.id}','${d.ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
     });
 
-    // Second pass: render per-member events (skip all-members ones)
+    // Per-member events
     MEMBERS.forEach((mem,mi)=>{
       const timed=(idx[mem.id][d.ds]||[]).filter(o=>o.ev.time);
       timed.forEach(o=>{
         const allForAll=MEMBERS.every(m=>(idx[m.id][d.ds]||[]).some(x=>x.ev.id===o.ev.id));
-        if(allForAll) return; // already rendered as wide block
+        if(allForAll) return;
 
         const isMultiDay=o.occFrom!==o.occTo, isStart=o.occFrom===d.ds, isEnd=o.occTo===d.ds;
         let topPx,heightPx;
         if(!isMultiDay){
-          const [sh,sm]=o.ev.time.split(':').map(Number);
-          if(sh<7||sh>22) return;
-          topPx=(sh-7+sm/60)*SLOT_H; heightPx=SLOT_H;
-          if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);}
+          const [sh2,sm]=o.ev.time.split(':').map(Number);
+          if(sh2<7||sh2>22) return;
+          topPx=(sh2-7+sm/60)*SLOT_H; heightPx=SLOT_H;
+          if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh2-sm/60)*SLOT_H);}
         } else if(isStart){
-          const [sh,sm]=o.ev.time.split(':').map(Number);
-          topPx=sh<7?0:(sh-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
+          const [sh2,sm]=o.ev.time.split(':').map(Number);
+          topPx=sh2<7?0:(sh2-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
         } else if(isEnd){
           topPx=0; heightPx=o.ev.timeEnd?(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return Math.max(20,(eh-7+em/60)*SLOT_H);})():WEEK_HOURS.length*SLOT_H;
         } else { topPx=0; heightPx=WEEK_HOURS.length*SLOT_H; }
 
-        const leftPx=di*dayW+mi*MEM_W+2;
+        const leftPx=dayLeft+mi*MEM_W2+2;
         const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
         const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-        html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_W-5}px" onclick="openPreview(event,'${o.ev.id}','${d.ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
+        html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_W2-5}px" onclick="openPreview(event,'${o.ev.id}','${d.ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
       });
     });
   });
   html+=`</div>`;
   document.getElementById('week-members').innerHTML=html;
 
-  // Sync corner height to sticky header, sync scroll
+  // Heights + sync vertical scroll
   requestAnimationFrame(()=>{
-    const h = document.getElementById('week-sticky').offsetHeight;
-    document.getElementById('week-corner').style.height = h+'px';
+    const hdrEl  = document.querySelector('header');
+    const legEl  = document.querySelector('.legend');
+    const stripEl= document.getElementById('week-week-strip');
+    const usedH  = (hdrEl?hdrEl.offsetHeight:0)+(legEl?legEl.offsetHeight:0)+(stripEl?stripEl.offsetHeight:0);
+    document.getElementById('week-inner').style.height=(window.innerHeight-usedH)+'px';
+
+    const cornerH=document.getElementById('week-sticky').offsetHeight;
+    document.getElementById('week-corner').style.height=cornerH+'px';
   });
-  const weekScroll = document.getElementById('week-scroll');
-  const weekSticky = document.getElementById('week-sticky');
-  weekScroll.onscroll = function(){
-    if(weekSticky.firstChild) weekSticky.firstChild.style.marginLeft='-'+weekScroll.scrollLeft+'px';
-  };
+  const weekScroll=document.getElementById('week-scroll');
+  const weekTimes =document.getElementById('week-times');
+  weekScroll.onscroll=function(){ weekTimes.scrollTop=weekScroll.scrollTop; };
 }
 
-function slotsHtml2(){} // replaced by renderWeek inline
+function slotsHtml2(){} // placeholder
 
 /* ===== DAY WEEK STRIP ===== */
 function renderDayWeekStrip() {
@@ -1302,7 +1346,7 @@ function navigate(d){
     if(currentMonth>11){currentMonth=0;currentYear++;}
     if(currentMonth<0) {currentMonth=11;currentYear--;}
   } else if(currentView==='week'){
-    currentWeekMonday=addDays(currentWeekMonday,d*7);
+    currentWeekMonday=addDays(currentWeekMonday,d*1);
   } else {
     currentDay=addDays(currentDay,d);
   }
@@ -1643,26 +1687,29 @@ function deleteEvent(){
   saveEvents(); closeModal(); render();
 }
 
-/* ===== SWIPE (day view) ===== */
+/* ===== SWIPE (day view + week view) ===== */
 (function(){
-  let startX=0, startY=0, startT=0;
-  const el = document.getElementById('day-view');
-  el.addEventListener('touchstart', e=>{
-    if(e.touches.length!==1) return;
-    startX=e.touches[0].clientX;
-    startY=e.touches[0].clientY;
-    startT=Date.now();
-  }, {passive:true});
-  el.addEventListener('touchend', e=>{
-    if(e.changedTouches.length!==1) return;
-    const dx=e.changedTouches[0].clientX-startX;
-    const dy=e.changedTouches[0].clientY-startY;
-    const dt=Date.now()-startT;
-    // horizontal swipe: fast enough, wide enough, more horizontal than vertical
-    if(dt<400 && Math.abs(dx)>40 && Math.abs(dx)>Math.abs(dy)*1.5){
-      navigate(dx<0 ? 1 : -1);
-    }
-  }, {passive:true});
+  function addSwipe(elId){
+    let startX=0, startY=0, startT=0;
+    const el = document.getElementById(elId);
+    el.addEventListener('touchstart', e=>{
+      if(e.touches.length!==1) return;
+      startX=e.touches[0].clientX;
+      startY=e.touches[0].clientY;
+      startT=Date.now();
+    }, {passive:true});
+    el.addEventListener('touchend', e=>{
+      if(e.changedTouches.length!==1) return;
+      const dx=e.changedTouches[0].clientX-startX;
+      const dy=e.changedTouches[0].clientY-startY;
+      const dt=Date.now()-startT;
+      if(dt<400 && Math.abs(dx)>40 && Math.abs(dx)>Math.abs(dy)*1.5){
+        navigate(dx<0 ? 1 : -1);
+      }
+    }, {passive:true});
+  }
+  addSwipe('day-view');
+  addSwipe('week-view');
 })();
 document.getElementById('modal-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('modal-overlay'))closeModal();});
 document.addEventListener('keydown',e=>{
