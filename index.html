@@ -924,7 +924,8 @@ function renderWeekStrip() {
   for(let i=0;i<7;i++){
     const dt  = addDays(monday, i);
     const ds  = toDateStr(dt);
-    const name= DAY_NAMES[i];
+    const dow = (dt.getDay()+6)%7; // 0=Mon ... 6=Sun
+    const name= DAY_NAMES[dow];
     const num = dt.getDate();
     const isToday  = ds===todayStr  ? ' is-today' : '';
     const isActive = ds===day0Str   ? ' active'   : '';
@@ -960,7 +961,8 @@ function renderWeek() {
   const todayStr = toDateStr(new Date());
   const visibleDays = Array.from({length:DAYS},(_,i)=>{
     const dt=addDays(day0,i);
-    return {dt, ds:toDateStr(dt), isToday:toDateStr(dt)===todayStr, idx:i};
+    const dow=(dt.getDay()+6)%7; // 0=Pn...6=Nd
+    return {dt, ds:toDateStr(dt), isToday:toDateStr(dt)===todayStr, idx:dow};
   });
 
   const idx = buildIdx(getOccurrencesInRange(ds0,ds1), ds0, ds1);
