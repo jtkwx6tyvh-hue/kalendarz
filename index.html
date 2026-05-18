@@ -464,16 +464,16 @@
 
   <!-- DAY VIEW -->
   <div id="day-view">
-    <div style="display:flex">
-      <!-- left: sticky time + header corner -->
-      <div style="flex-shrink:0;width:46px;z-index:21">
-        <div id="day-corner" style="position:sticky;top:0;background:var(--surface);z-index:22"></div>
-        <div id="day-times" style="background:var(--surface);border-right:1px solid var(--border)"></div>
+    <div id="day-inner" style="display:flex;overflow:hidden">
+      <!-- left: time column -->
+      <div style="flex-shrink:0;width:46px;z-index:21;display:flex;flex-direction:column">
+        <div id="day-corner" style="background:var(--surface);z-index:22;flex-shrink:0"></div>
+        <div id="day-times" style="background:var(--surface);border-right:1px solid var(--border);overflow:hidden;flex:1;overflow-y:hidden"></div>
       </div>
       <!-- right: sticky header + scrollable grid -->
-      <div style="flex:1;overflow:hidden">
-        <div id="day-sticky" style="position:sticky;top:0;z-index:20;background:var(--surface);overflow:hidden"></div>
-        <div id="day-scroll" style="overflow-x:hidden;overscroll-behavior-x:none">
+      <div style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+        <div id="day-sticky" style="z-index:20;background:var(--surface);flex-shrink:0"></div>
+        <div id="day-scroll" style="overflow-x:hidden;overflow-y:auto;overscroll-behavior-x:none;flex:1">
           <div id="day-content"></div>
         </div>
       </div>
@@ -1223,11 +1223,19 @@ function renderDay(){
   html+=`</div>`;
   document.getElementById('day-content').innerHTML=html;
 
-  // Sync corner height
+  // Sync corner height + sync vertical scroll of times with grid
   requestAnimationFrame(()=>{
     const h = document.getElementById('day-sticky').offsetHeight;
     document.getElementById('day-corner').style.height = h+'px';
+    // Set day-inner height to fill viewport below header+legend
+    const hdr = document.querySelector('header');
+    const leg = document.querySelector('.legend');
+    const usedH = (hdr ? hdr.offsetHeight : 0) + (leg ? leg.offsetHeight : 0);
+    document.getElementById('day-inner').style.height = (window.innerHeight - usedH) + 'px';
   });
+  const dayScroll = document.getElementById('day-scroll');
+  const dayTimes  = document.getElementById('day-times');
+  dayScroll.onscroll = function(){ dayTimes.scrollTop = dayScroll.scrollTop; };
 }
 
 /* ===== VIEW CONTROL ===== */
