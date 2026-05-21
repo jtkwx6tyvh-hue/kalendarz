@@ -1054,70 +1054,7 @@ function renderWeek() {
   });
   html += `</div>`;
 
-  // Events (absolute positioned — need px values)
-  const allMemberIds = MEMBERS.map(m=>m.id).sort().join(',');
-  const renderedEvIds = new Set();
-
-  visibleDays.forEach((d,di)=>{
-    const dayLeft = di * DAY_W;
-
-    // All-members events
-    const dayOccs = idx[MEMBERS[0].id][d.ds]||[];
-    dayOccs.forEach(o=>{
-      if(!o.ev.time) return;
-      const allForAll=MEMBERS.every(m=>(idx[m.id][d.ds]||[]).some(x=>x.ev.id===o.ev.id));
-      if(!allForAll) return;
-      const evKey=d.ds+'|'+o.ev.id;
-      if(renderedEvIds.has(evKey)) return;
-      renderedEvIds.add(evKey);
-
-      const isMultiDay=o.occFrom!==o.occTo, isStart=o.occFrom===d.ds, isEnd=o.occTo===d.ds;
-      let topPx,heightPx;
-      if(!isMultiDay){
-        const [sh2,sm]=o.ev.time.split(':').map(Number);
-        if(sh2<7||sh2>22) return;
-        topPx=(sh2-7+sm/60)*SLOT_H; heightPx=SLOT_H;
-        if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh2-sm/60)*SLOT_H);}
-      } else if(isStart){
-        const [sh2,sm]=o.ev.time.split(':').map(Number);
-        topPx=sh2<7?0:(sh2-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
-      } else if(isEnd){
-        topPx=0; heightPx=o.ev.timeEnd?(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return Math.max(20,(eh-7+em/60)*SLOT_H);})():WEEK_HOURS.length*SLOT_H;
-      } else { topPx=0; heightPx=WEEK_HOURS.length*SLOT_H; }
-
-      const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
-      const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-      html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${dayLeft+2}px;width:${DAY_W-6}px" onclick="openPreview(event,'${o.ev.id}','${d.ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
-    });
-
-    // Per-member events
-    MEMBERS.forEach((mem,mi)=>{
-      const timed=(idx[mem.id][d.ds]||[]).filter(o=>o.ev.time);
-      timed.forEach(o=>{
-        const allForAll=MEMBERS.every(m=>(idx[m.id][d.ds]||[]).some(x=>x.ev.id===o.ev.id));
-        if(allForAll) return;
-
-        const isMultiDay=o.occFrom!==o.occTo, isStart=o.occFrom===d.ds, isEnd=o.occTo===d.ds;
-        let topPx,heightPx;
-        if(!isMultiDay){
-          const [sh2,sm]=o.ev.time.split(':').map(Number);
-          if(sh2<7||sh2>22) return;
-          topPx=(sh2-7+sm/60)*SLOT_H; heightPx=SLOT_H;
-          if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh2-sm/60)*SLOT_H);}
-        } else if(isStart){
-          const [sh2,sm]=o.ev.time.split(':').map(Number);
-          topPx=sh2<7?0:(sh2-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
-        } else if(isEnd){
-          topPx=0; heightPx=o.ev.timeEnd?(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return Math.max(20,(eh-7+em/60)*SLOT_H);})():WEEK_HOURS.length*SLOT_H;
-        } else { topPx=0; heightPx=WEEK_HOURS.length*SLOT_H; }
-
-        const leftPx=dayLeft+mi*MEM_W2+2;
-        const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
-        const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-        html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_W2-5}px" onclick="openPreview(event,'${o.ev.id}','${d.ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
-      });
-    });
-  });
+  // events added after render via requestAnimationFrame (measured widths)
   html+=`</div>`;
   document.getElementById('week-members').innerHTML=html;
 
@@ -1131,6 +1068,87 @@ function renderWeek() {
 
     const cornerH=document.getElementById('week-sticky').offsetHeight;
     document.getElementById('week-corner').style.height=cornerH+'px';
+
+    // Re-render events with actual measured grid width
+    const gridEl = document.getElementById('week-members');
+    const actualW = gridEl.clientWidth;
+    const realDayW = Math.floor(actualW / DAYS);
+    const realMemW = Math.floor(realDayW / MEMBERS.length);
+
+    gridEl.querySelectorAll('.week-event').forEach(el => el.remove());
+
+    const evContainer = gridEl.querySelector('div[style*="position:relative"]');
+    if(!evContainer) return;
+
+    const renderedEvIds2 = new Set();
+    visibleDays.forEach((d,di)=>{
+      const dayLeft2 = di * realDayW;
+
+      // All-members events
+      const dayOccs2 = idx[MEMBERS[0].id][d.ds]||[];
+      dayOccs2.forEach(o=>{
+        if(!o.ev.time) return;
+        const allForAll=MEMBERS.every(m=>(idx[m.id][d.ds]||[]).some(x=>x.ev.id===o.ev.id));
+        if(!allForAll) return;
+        const evKey=d.ds+'|'+o.ev.id;
+        if(renderedEvIds2.has(evKey)) return;
+        renderedEvIds2.add(evKey);
+        const isMultiDay=o.occFrom!==o.occTo, isStart=o.occFrom===d.ds, isEnd=o.occTo===d.ds;
+        let topPx,heightPx;
+        if(!isMultiDay){
+          const [sh2,sm]=o.ev.time.split(':').map(Number);
+          if(sh2<7||sh2>22) return;
+          topPx=(sh2-7+sm/60)*SLOT_H; heightPx=SLOT_H;
+          if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh2-sm/60)*SLOT_H);}
+        } else if(isStart){
+          const [sh2,sm]=o.ev.time.split(':').map(Number);
+          topPx=sh2<7?0:(sh2-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
+        } else if(isEnd){
+          topPx=0; heightPx=o.ev.timeEnd?(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return Math.max(20,(eh-7+em/60)*SLOT_H);})():WEEK_HOURS.length*SLOT_H;
+        } else { topPx=0; heightPx=WEEK_HOURS.length*SLOT_H; }
+        const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
+        const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
+        const el=document.createElement('div');
+        el.className=`week-event all-members ${intensityClass(o)}`;
+        el.style.cssText=`top:${topPx}px;height:${heightPx}px;left:${dayLeft2+2}px;width:${realDayW-6}px`;
+        el.title=o.ev.note||o.ev.title;
+        el.innerHTML=`${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span>`;
+        el.onclick=e=>openPreview(e,o.ev.id,d.ds);
+        evContainer.appendChild(el);
+      });
+
+      // Per-member events
+      MEMBERS.forEach((mem,mi)=>{
+        const timed2=(idx[mem.id][d.ds]||[]).filter(o=>o.ev.time);
+        timed2.forEach(o=>{
+          const allForAll=MEMBERS.every(m=>(idx[m.id][d.ds]||[]).some(x=>x.ev.id===o.ev.id));
+          if(allForAll) return;
+          const isMultiDay=o.occFrom!==o.occTo, isStart=o.occFrom===d.ds, isEnd=o.occTo===d.ds;
+          let topPx,heightPx;
+          if(!isMultiDay){
+            const [sh2,sm]=o.ev.time.split(':').map(Number);
+            if(sh2<7||sh2>22) return;
+            topPx=(sh2-7+sm/60)*SLOT_H; heightPx=SLOT_H;
+            if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh2-sm/60)*SLOT_H);}
+          } else if(isStart){
+            const [sh2,sm]=o.ev.time.split(':').map(Number);
+            topPx=sh2<7?0:(sh2-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
+          } else if(isEnd){
+            topPx=0; heightPx=o.ev.timeEnd?(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return Math.max(20,(eh-7+em/60)*SLOT_H);})():WEEK_HOURS.length*SLOT_H;
+          } else { topPx=0; heightPx=WEEK_HOURS.length*SLOT_H; }
+          const leftPx=dayLeft2+mi*realMemW+2;
+          const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
+          const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
+          const el=document.createElement('div');
+          el.className=`week-event ${mem.id} ${intensityClass(o)}`;
+          el.style.cssText=`top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${realMemW-5}px`;
+          el.title=o.ev.note||o.ev.title;
+          el.innerHTML=`${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span>`;
+          el.onclick=e=>openPreview(e,o.ev.id,d.ds);
+          evContainer.appendChild(el);
+        });
+      });
+    });
   });
   const weekScroll=document.getElementById('week-scroll');
   const weekTimes =document.getElementById('week-times');
