@@ -43,36 +43,28 @@
   /* ── HEADER ── */
   header {
     background: var(--grzesiek); color: #fff;
-    padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.15); flex-wrap: wrap;
+    padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15); flex-wrap: wrap;
   }
-  header h1 { font-family: 'Playfair Display', serif; font-size: 1.35rem; letter-spacing: 0.02em; white-space: nowrap; }
-  .nav-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  header h1 { font-family: 'Playfair Display', serif; font-size: 0.95rem; letter-spacing: 0.02em; white-space: nowrap; }
+  .nav-controls { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
   .nav-controls button {
     background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: #fff;
-    border-radius: 8px; padding: 5px 13px; cursor: pointer; font-family: 'DM Sans', sans-serif;
-    font-size: 0.85rem; transition: background 0.2s; white-space: nowrap;
+    border-radius: 8px; padding: 3px 10px; cursor: pointer; font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem; transition: background 0.2s; white-space: nowrap;
   }
   .nav-controls button:hover { background: rgba(255,255,255,0.28); }
-  #period-label { font-family: 'Playfair Display', serif; font-size: 1.05rem; min-width: 160px; text-align: center; }
-  .today-btn { font-size: 0.72rem !important; padding: 3px 9px !important; opacity: 0.8; }
+  #period-label { font-family: 'Playfair Display', serif; font-size: 0.85rem; min-width: 120px; text-align: center; }
+  .today-btn { font-size: 0.65rem !important; padding: 2px 7px !important; opacity: 0.8; }
 
   /* view toggle */
   .view-toggle { display: flex; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; overflow: hidden; }
   .view-toggle button {
-    border: none; border-radius: 0; padding: 5px 12px; font-size: 0.78rem;
+    border: none; border-radius: 0; padding: 3px 9px; font-size: 0.7rem;
     background: transparent; border-right: 1px solid rgba(255,255,255,0.2);
   }
   .view-toggle button:last-child { border-right: none; }
   .view-toggle button.active { background: rgba(255,255,255,0.28); font-weight: 600; }
-
-  /* ── LEGEND ── */
-  .legend {
-    display: flex; gap: 16px; padding: 8px 20px; background: var(--surface);
-    border-bottom: 1px solid var(--border); flex-wrap: wrap; align-items: center;
-  }
-  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 500; }
-  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
   /* ── CALENDAR WRAP ── */
   .calendar-wrap { padding: 0 0 40px; }
@@ -331,17 +323,11 @@
   @media (max-width: 640px) {
     /* Header */
     header { padding: 8px 10px; gap: 6px; }
-    header h1 { font-size: 0.9rem; }
-    .nav-controls { gap: 5px; }
-    .view-toggle button { padding: 4px 9px; font-size: 0.72rem; }
-    .nav-controls button { padding: 4px 10px; font-size: 0.8rem; }
-    #period-label { font-size: 0.88rem; min-width: 0; }
-
-    /* Legend */
-    .legend { padding: 5px 10px; gap: 8px; }
-    .legend-item { font-size: 0.72rem; gap: 4px; }
-    .legend-dot { width: 8px; height: 8px; }
-    .legend [style*="margin-left:auto"] { display: none; }
+    header h1 { font-size: 0.85rem; }
+    .nav-controls { gap: 4px; }
+    .view-toggle button { padding: 3px 7px; font-size: 0.65rem; }
+    .nav-controls button { padding: 2px 8px; font-size: 0.72rem; }
+    #period-label { font-size: 0.8rem; min-width: 0; }
 
     /* Modal */
     .modal { padding: 16px 12px; }
@@ -349,10 +335,10 @@
   }
 
   /* Day view week strip */
-  .dws-cell { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; padding:2px 0; }
-  .dws-name { font-size:0.62rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); }
-  .dws-num  { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-              font-size:0.92rem; font-weight:500; color:var(--text); transition:background 0.15s; }
+  .dws-cell { flex:1; display:flex; flex-direction:column; align-items:center; gap:1px; cursor:pointer; padding:2px 0; }
+  .dws-name { font-size:0.58rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); }
+  .dws-num  { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+              font-size:0.82rem; font-weight:500; color:var(--text); transition:background 0.15s; }
   .dws-cell:hover .dws-num { background:var(--border); }
   .dws-cell.active .dws-num { background:var(--gosia); color:#fff; font-weight:700; }
   .dws-cell.is-today .dws-name { color:var(--gosia); }
@@ -392,14 +378,6 @@
   </div>
 </header>
 
-<div class="legend">
-  <div class="legend-item"><div class="legend-dot" style="background:var(--gosia)"></div> Gosia</div>
-  <div class="legend-item"><div class="legend-dot" style="background:var(--grzesiek)"></div> Grzesiek</div>
-  <div class="legend-item"><div class="legend-dot" style="background:var(--adas)"></div> Adaś</div>
-  <div class="legend-item"><div class="legend-dot" style="background:var(--tymek)"></div> Tymek</div>
-  <span style="margin-left:auto;font-size:0.72rem;color:var(--muted)">Kliknij komórkę → dodaj</span>
-</div>
-
 <div class="calendar-wrap">
 
   <!-- MONTH VIEW -->
@@ -411,7 +389,7 @@
 
   <!-- WEEK VIEW (2-day) -->
   <div id="week-view">
-    <div id="week-week-strip" style="display:flex;background:var(--surface);border-bottom:2px solid var(--border);padding:6px 0 4px;user-select:none"></div>
+    <div id="week-week-strip" style="display:flex;background:var(--surface);border-bottom:2px solid var(--border);padding:3px 0 2px;user-select:none"></div>
     <div id="week-inner" style="display:flex;overflow:hidden">
       <!-- left: time column -->
       <div style="flex-shrink:0;width:46px;z-index:21;display:flex;flex-direction:column">
@@ -431,7 +409,7 @@
 
   <!-- DAY VIEW -->
   <div id="day-view">
-    <div id="day-week-strip" style="display:flex;background:var(--surface);border-bottom:2px solid var(--border);padding:6px 0 4px;user-select:none"></div>
+    <div id="day-week-strip" style="display:flex;background:var(--surface);border-bottom:2px solid var(--border);padding:3px 0 2px;user-select:none"></div>
     <div id="day-inner" style="display:flex;overflow:hidden">
       <!-- left: time column -->
       <div style="flex-shrink:0;width:46px;z-index:21;display:flex;flex-direction:column">
