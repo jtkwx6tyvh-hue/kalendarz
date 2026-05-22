@@ -325,23 +325,6 @@
   .preview-person-dot { display:inline-flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:500;padding:2px 8px;border-radius:12px;color:#fff; }
 
   /* ── LOCK ── */
-  #lock-screen { position: fixed; inset: 0; z-index: 9999; background: var(--grzesiek); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: #fff; }
-  #lock-screen h2 { font-family: 'Playfair Display', serif; font-size: 1.8rem; }
-  #lock-screen p  { font-size: 0.88rem; opacity: 0.72; }
-  .lock-icon { font-size: 2.6rem; }
-  .pin-dots { display: flex; gap: 14px; margin: 4px 0 8px; }
-  .pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5); background: transparent; transition: background 0.15s; }
-  .pin-dot.filled { background: #fff; border-color: #fff; }
-  .pin-dot.shake  { animation: shake 0.35s ease; }
-  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
-  .pin-grid { display: grid; grid-template-columns: repeat(3, 68px); gap: 12px; }
-  .pin-key { height: 68px; border-radius: 50%; border: none; cursor: pointer; background: rgba(255,255,255,0.12); color: #fff; font-family: 'DM Sans', sans-serif; font-size: 1.4rem; font-weight: 500; transition: background 0.15s, transform 0.1s; }
-  .pin-key:hover  { background: rgba(255,255,255,0.22); }
-  .pin-key:active { transform: scale(0.92); }
-  .pin-key-empty  { background: transparent !important; cursor: default; }
-  .pin-key-del    { font-size: 1.2rem; }
-  #lock-error { font-size: 0.8rem; color: var(--tymek); min-height: 18px; }
-  #lock-screen.hidden { display: none; }
   #day-view { display: none; }
   #day-view.visible { display: block; }
 
@@ -391,33 +374,6 @@
 </style>
 </head>
 <body>
-
-<!-- LOCK -->
-<div id="lock-screen">
-  <div class="lock-icon">🔒</div>
-  <h2>Nasz Kalendarz</h2>
-  <p id="lock-msg">Wprowadź PIN</p>
-  <div class="pin-dots">
-    <span class="pin-dot" id="dot0"></span><span class="pin-dot" id="dot1"></span>
-    <span class="pin-dot" id="dot2"></span><span class="pin-dot" id="dot3"></span>
-  </div>
-  <div class="pin-grid">
-    <button class="pin-key" onclick="pinKey('1')">1</button>
-    <button class="pin-key" onclick="pinKey('2')">2</button>
-    <button class="pin-key" onclick="pinKey('3')">3</button>
-    <button class="pin-key" onclick="pinKey('4')">4</button>
-    <button class="pin-key" onclick="pinKey('5')">5</button>
-    <button class="pin-key" onclick="pinKey('6')">6</button>
-    <button class="pin-key" onclick="pinKey('7')">7</button>
-    <button class="pin-key" onclick="pinKey('8')">8</button>
-    <button class="pin-key" onclick="pinKey('9')">9</button>
-    <button class="pin-key pin-key-empty"></button>
-    <button class="pin-key" onclick="pinKey('0')">0</button>
-    <button class="pin-key pin-key-del" onclick="pinDel()">⌫</button>
-  </div>
-  <span id="lock-error"></span>
-</div>
-
 <!-- APP -->
 <div id="app">
 
@@ -1254,88 +1210,93 @@ function renderDay(){
     html+=`</div>`;
   });
   html+=`</div>`;
-
-  const renderedDayEvIds = new Set();
-
-  // First pass: all-members events as one wide block
-  const dayOccs0 = idx[MEMBERS[0].id][ds]||[];
-  dayOccs0.forEach(o=>{
-    if(!o.ev.time) return;
-    const allForAll=MEMBERS.every(m=>(idx[m.id][ds]||[]).some(x=>x.ev.id===o.ev.id));
-    if(!allForAll) return;
-    if(renderedDayEvIds.has(o.ev.id)) return;
-    renderedDayEvIds.add(o.ev.id);
-
-    const isMultiDay=o.occFrom!==o.occTo, isStart=o.occFrom===ds, isEnd=o.occTo===ds;
-    let topPx,heightPx;
-    if(!isMultiDay){
-      const [sh,sm]=o.ev.time.split(':').map(Number);
-      if(sh<7||sh>22) return;
-      topPx=(sh-7+sm/60)*SLOT_H; heightPx=SLOT_H;
-      if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);}
-    } else if(isStart){
-      const [sh,sm]=o.ev.time.split(':').map(Number);
-      topPx=sh<7?0:(sh-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
-    } else if(isEnd){
-      topPx=0; heightPx=o.ev.timeEnd?(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return Math.max(20,(eh-7+em/60)*SLOT_H);})():WEEK_HOURS.length*SLOT_H;
-    } else { topPx=0; heightPx=WEEK_HOURS.length*SLOT_H; }
-
-    const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
-    const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-    html+=`<div class="week-event all-members ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:3px;right:3px;width:auto" onclick="openPreview(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
-  });
-
-  // Second pass: per-member events
-  MEMBERS.forEach((mem,mi)=>{
-    const timed=(idx[mem.id][ds]||[]).filter(o=>o.ev.time);
-    timed.forEach(o=>{
-      const allForAll=MEMBERS.every(m=>(idx[m.id][ds]||[]).some(x=>x.ev.id===o.ev.id));
-      if(allForAll) return;
-
-      const isMultiDay = o.occFrom !== o.occTo;
-      const isStart = o.occFrom === ds;
-      const isEnd   = o.occTo   === ds;
-
-      let topPx, heightPx;
-      if(!isMultiDay){
-        const [sh,sm]=o.ev.time.split(':').map(Number);
-        if(sh<7||sh>22) return;
-        topPx=(sh-7+sm/60)*SLOT_H;
-        heightPx=SLOT_H;
-        if(o.ev.timeEnd){
-          const [eh,em]=o.ev.timeEnd.split(':').map(Number);
-          heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);
-        }
-      } else if(isStart){
-        const [sh,sm]=o.ev.time.split(':').map(Number);
-        topPx=sh<7?0:(sh-7+sm/60)*SLOT_H;
-        heightPx=WEEK_HOURS.length*SLOT_H-topPx;
-      } else if(isEnd){
-        topPx=0;
-        heightPx=o.ev.timeEnd ? Math.max(20,(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return (eh-7+em/60)*SLOT_H;})()) : WEEK_HOURS.length*SLOT_H;
-      } else {
-        topPx=0; heightPx=WEEK_HOURS.length*SLOT_H;
-      }
-
-      const leftPx=mi*MEM_COL_W+3;
-      const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
-      const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
-      html+=`<div class="week-event ${mem.id} ${intensityClass(o)}" style="top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${MEM_COL_W-7}px" onclick="openPreview(event,'${o.ev.id}','${ds}')" title="${o.ev.note||o.ev.title}">${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span></div>`;
-    });
-  });
+  // events added after render via requestAnimationFrame (measured widths)
   html+=`</div>`;
   document.getElementById('day-content').innerHTML=html;
 
-  // Sync corner height + sync vertical scroll of times with grid
+  // Sync corner height + sync vertical scroll + render events with measured width
   requestAnimationFrame(()=>{
     const h = document.getElementById('day-sticky').offsetHeight;
     document.getElementById('day-corner').style.height = h+'px';
-    // Set day-inner height to fill viewport below header+legend
     const hdr   = document.querySelector('header');
     const leg   = document.querySelector('.legend');
     const strip = document.getElementById('day-week-strip');
     const usedH = (hdr ? hdr.offsetHeight : 0) + (leg ? leg.offsetHeight : 0) + (strip ? strip.offsetHeight : 0);
     document.getElementById('day-inner').style.height = (window.innerHeight - usedH) + 'px';
+
+    // Measure actual grid width and render events
+    const contentEl = document.getElementById('day-content');
+    const actualW   = contentEl.clientWidth;
+    const realMemW  = Math.floor(actualW / MEMBERS.length);
+
+    const evContainer = contentEl.querySelector('div[style*="position:relative"]');
+    if(!evContainer) return;
+
+    const renderedDayEvIds = new Set();
+
+    // All-members events
+    const dayOccs0 = idx[MEMBERS[0].id][ds]||[];
+    dayOccs0.forEach(o=>{
+      if(!o.ev.time) return;
+      const allForAll=MEMBERS.every(m=>(idx[m.id][ds]||[]).some(x=>x.ev.id===o.ev.id));
+      if(!allForAll) return;
+      if(renderedDayEvIds.has(o.ev.id)) return;
+      renderedDayEvIds.add(o.ev.id);
+      const isMultiDay=o.occFrom!==o.occTo, isStart=o.occFrom===ds, isEnd=o.occTo===ds;
+      let topPx,heightPx;
+      if(!isMultiDay){
+        const [sh,sm]=o.ev.time.split(':').map(Number);
+        if(sh<7||sh>22) return;
+        topPx=(sh-7+sm/60)*SLOT_H; heightPx=SLOT_H;
+        if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);}
+      } else if(isStart){
+        const [sh,sm]=o.ev.time.split(':').map(Number);
+        topPx=sh<7?0:(sh-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
+      } else if(isEnd){
+        topPx=0; heightPx=o.ev.timeEnd?(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return Math.max(20,(eh-7+em/60)*SLOT_H);})():WEEK_HOURS.length*SLOT_H;
+      } else { topPx=0; heightPx=WEEK_HOURS.length*SLOT_H; }
+      const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
+      const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
+      const el=document.createElement('div');
+      el.className=`week-event all-members ${intensityClass(o)}`;
+      el.style.cssText=`top:${topPx}px;height:${heightPx}px;left:3px;right:3px;width:auto`;
+      el.title=o.ev.note||o.ev.title;
+      el.innerHTML=`${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span>`;
+      el.onclick=e=>openPreview(e,o.ev.id,ds);
+      evContainer.appendChild(el);
+    });
+
+    // Per-member events
+    MEMBERS.forEach((mem,mi)=>{
+      const timed=(idx[mem.id][ds]||[]).filter(o=>o.ev.time);
+      timed.forEach(o=>{
+        const allForAll=MEMBERS.every(m=>(idx[m.id][ds]||[]).some(x=>x.ev.id===o.ev.id));
+        if(allForAll) return;
+        const isMultiDay=o.occFrom!==o.occTo, isStart=o.occFrom===ds, isEnd=o.occTo===ds;
+        let topPx,heightPx;
+        if(!isMultiDay){
+          const [sh,sm]=o.ev.time.split(':').map(Number);
+          if(sh<7||sh>22) return;
+          topPx=(sh-7+sm/60)*SLOT_H; heightPx=SLOT_H;
+          if(o.ev.timeEnd){const [eh,em]=o.ev.timeEnd.split(':').map(Number);heightPx=Math.max(20,(eh+em/60-sh-sm/60)*SLOT_H);}
+        } else if(isStart){
+          const [sh,sm]=o.ev.time.split(':').map(Number);
+          topPx=sh<7?0:(sh-7+sm/60)*SLOT_H; heightPx=WEEK_HOURS.length*SLOT_H-topPx;
+        } else if(isEnd){
+          topPx=0; heightPx=o.ev.timeEnd?(()=>{const [eh,em]=o.ev.timeEnd.split(':').map(Number);return Math.max(20,(eh-7+em/60)*SLOT_H);})():WEEK_HOURS.length*SLOT_H;
+        } else { topPx=0; heightPx=WEEK_HOURS.length*SLOT_H; }
+        const leftPx=mi*realMemW+3;
+        const timeStr=isStart?`${o.ev.time}${o.ev.timeEnd?'–'+o.ev.timeEnd:''}`:'';
+        const timeHtml=timeStr?`<span class="chip-time">${timeStr}</span>`:'';
+        const el=document.createElement('div');
+        el.className=`week-event ${mem.id} ${intensityClass(o)}`;
+        el.style.cssText=`top:${topPx}px;height:${heightPx}px;left:${leftPx}px;width:${realMemW-7}px`;
+        el.title=o.ev.note||o.ev.title;
+        el.innerHTML=`${timeHtml}<span class="chip-title">${(o.ev.icon?o.ev.icon+" ":"")+o.ev.title}</span>`;
+        el.onclick=e=>openPreview(e,o.ev.id,ds);
+        evContainer.appendChild(el);
+      });
+    });
   });
   const dayScroll = document.getElementById('day-scroll');
   const dayTimes  = document.getElementById('day-times');
@@ -1733,78 +1694,10 @@ function deleteEvent(){
 })();
 document.getElementById('modal-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('modal-overlay'))closeModal();});
 document.addEventListener('keydown',e=>{
-  if(!document.getElementById('lock-screen').classList.contains('hidden')){
-    if(e.key>='0'&&e.key<='9')pinKey(e.key);
-    if(e.key==='Backspace')pinDel();
-    return;
-  }
   if(e.key==='Escape')closeModal();
   if(e.key==='Enter'&&document.getElementById('modal-overlay').classList.contains('open')&&!['TEXTAREA','SELECT'].includes(document.activeElement.tagName))saveEvent();
 });
 
-/* ===== PIN ===== */
-const AUTH_KEY='kal_authed', PIN_KEY='kal_pin_hash';
-let pinBuffer='', pinMode='unlock', pinFirst='';
-
-function simpleHash(str){
-  let h=5381;
-  for(let i=0;i<str.length;i++) h=((h<<5)+h)^str.charCodeAt(i);
-  return 'h_'+(h>>>0).toString(16);
-}
-
-function unlockApp(){
-  document.getElementById('lock-screen').classList.add('hidden');
-  document.getElementById('app').classList.add('visible');
-  try{ sessionStorage.setItem(AUTH_KEY,'1'); }catch(e){}
-}
-function setLockError(msg){ document.getElementById('lock-error').textContent=msg; }
-function updateDots(){ for(let i=0;i<4;i++) document.getElementById('dot'+i).classList.toggle('filled',i<pinBuffer.length); }
-function shakeDots(){ for(let i=0;i<4;i++){ const d=document.getElementById('dot'+i); d.classList.add('shake'); setTimeout(()=>d.classList.remove('shake'),400); } }
-
-function pinKey(digit){
-  if(pinBuffer.length>=4) return;
-  pinBuffer+=digit;
-  setLockError('');
-  updateDots();
-  if(pinBuffer.length===4) setTimeout(handlePinComplete, 120);
-}
-function pinDel(){
-  if(pinBuffer.length>0){ pinBuffer=pinBuffer.slice(0,-1); updateDots(); setLockError(''); }
-}
-
-function handlePinComplete(){
-  const entered=pinBuffer;
-  pinBuffer='';
-  updateDots();
-
-  if(pinMode==='set1'){
-    pinFirst=entered;
-    pinMode='set2';
-    document.getElementById('lock-msg').textContent='Powtórz PIN';
-    return;
-  }
-  if(pinMode==='set2'){
-    if(entered!==pinFirst){
-      shakeDots();
-      setLockError('PINy się nie zgadzają.');
-      pinMode='set1'; pinFirst='';
-      document.getElementById('lock-msg').textContent='Ustaw nowy PIN (4 cyfry)';
-      return;
-    }
-    try{ localStorage.setItem(PIN_KEY, simpleHash(entered)); }catch(e){}
-    unlockApp();
-    return;
-  }
-  // unlock mode
-  let stored='';
-  try{ stored=localStorage.getItem(PIN_KEY)||''; }catch(e){}
-  if(simpleHash(entered)===stored){
-    unlockApp();
-  } else {
-    shakeDots();
-    setLockError('Nieprawidłowy PIN');
-  }
-}
 
 /* ===== INIT ===== */
 (function(){
@@ -1814,9 +1707,8 @@ function handlePinComplete(){
   currentWeekMonday=getMondayOf(t);
   currentDay=new Date(t.getFullYear(),t.getMonth(),t.getDate());
 
-  if(sessionStorage.getItem(AUTH_KEY)){ unlockApp(); }
-  else if(!localStorage.getItem(PIN_KEY)){ pinMode='set1'; document.getElementById('lock-msg').textContent='Ustaw nowy PIN (4 cyfry)'; }
 
+  document.getElementById('app').classList.add('visible');
   initFirebase(); // loads events from Firebase + sets up real-time listener
 })();
 </script>
