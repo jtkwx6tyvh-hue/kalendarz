@@ -1012,8 +1012,7 @@ function renderWeek() {
   document.getElementById('week-sticky').innerHTML=sh;
 
   // ── SCROLLABLE GRID ──
-  let html = `<div style="width:100%;position:relative">`;
-  html += `<div style="width:100%;position:relative">`;
+  let html = `<div id="week-ev-container" style="width:100%;position:relative">`;
   html += `<div style="display:flex;flex-direction:column">`;
   WEEK_HOURS.forEach(hour=>{
     html += `<div style="display:flex;height:${SLOT_H}px;border-bottom:1px solid var(--border)">`;
@@ -1027,10 +1026,9 @@ function renderWeek() {
     });
     html += `</div>`;
   });
-  html += `</div>`;
-
+  html += `</div>`; // flex-direction:column
   // events added after render via requestAnimationFrame (measured widths)
-  html+=`</div>`;
+  html+=`</div>`; // position:relative
   document.getElementById('week-members').innerHTML=html;
 
   // Heights + sync vertical scroll
@@ -1052,7 +1050,7 @@ function renderWeek() {
 
     gridEl.querySelectorAll('.week-event').forEach(el => el.remove());
 
-    const evContainer = gridEl.querySelector('div[style*="position:relative"]');
+    const evContainer = document.getElementById('week-ev-container');
     if(!evContainer) return;
 
     const renderedEvIds2 = new Set();
