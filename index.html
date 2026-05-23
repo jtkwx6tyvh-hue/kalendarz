@@ -33,6 +33,7 @@
     --text:     #2c2c2c;
     --muted:    #9a9590;
     --today-bg: #fff8e7;
+    --weekend-bg: #f5f0fb;
     --col-w:    134px;
     --label-w:  44px;
     --row-h:    110px;
@@ -106,6 +107,8 @@
   }
   .day-cell:hover { background: #f0ede6; }
   .day-cell.today  { background: var(--today-bg); }
+  .day-cell.weekend { background: var(--weekend-bg); }
+  .day-cell.today.weekend { background: var(--today-bg); }
   .day-cell.other-month { background: #f5f3ef; }
   .day-cell.other-month .day-num { color: #ccc; }
   .day-cell.date-row { min-height: 28px; cursor: default; background: var(--surface) !important; display: block; }
@@ -334,7 +337,23 @@
     .two-col { grid-template-columns: 1fr; }
   }
 
-  /* Day view week strip */
+  /* ── SEARCH ── */
+  .search-result {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+  .search-result:hover { background: #f5f3ef; }
+  .search-result:last-child { border-bottom: none; }
+  .sr-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .sr-body { flex: 1; min-width: 0; }
+  .sr-title { font-size: 0.9rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sr-meta  { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+  .search-empty { padding: 32px 14px; text-align: center; color: var(--muted); font-size: 0.88rem; }
+
+  /* ── HIGHLIGHT PULSE ── */
+  @keyframes ev-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(224,122,95,0.6)} 50%{box-shadow:0 0 0 6px rgba(224,122,95,0)} }
+  .ev-highlight { animation: ev-pulse 0.7s ease 2; }
   .dws-cell { flex:1; display:flex; flex-direction:column; align-items:center; gap:1px; cursor:pointer; padding:2px 0; }
   .dws-name { font-size:0.58rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); }
   .dws-num  { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
@@ -375,8 +394,23 @@
     <span id="period-label"></span>
     <button onclick="navigate(1)">›</button>
     <button class="today-btn" onclick="goToday()">Dziś</button>
+    <button class="today-btn" onclick="openSearch()" title="Szukaj">🔍</button>
   </div>
 </header>
+
+<!-- SEARCH OVERLAY -->
+<div id="search-overlay" style="display:none;position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px)" onclick="if(event.target===this)closeSearch()">
+  <div id="search-panel" style="position:absolute;top:0;left:0;right:0;background:var(--surface);border-radius:0 0 16px 16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);max-height:80vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border)">
+      <span style="font-size:1.1rem">🔍</span>
+      <input id="search-input" type="text" placeholder="Szukaj wydarzeń…"
+        style="flex:1;border:none;outline:none;font-size:1rem;font-family:'DM Sans',sans-serif;background:transparent;color:var(--text)"
+        oninput="doSearch(this.value)" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button onclick="closeSearch()" style="border:none;background:none;font-size:1.1rem;cursor:pointer;color:var(--muted);padding:2px 6px">✕</button>
+    </div>
+    <div id="search-results" style="overflow-y:auto;flex:1;padding:4px 0"></div>
+  </div>
+</div>
 
 <div class="calendar-wrap">
 
@@ -759,7 +793,9 @@ function renderMonth() {
     html+=`<div class="row-label" style="background:var(--surface);min-height:28px;position:sticky;left:0;z-index:4"></div>`;
     wd.forEach(day=>{
       const isToday=day.ds===todayStr;
-      const cls=`day-cell date-row${day.om?' other-month':''}${isToday?' today':''}`;
+      const dow=new Date(day.y,day.m,day.d).getDay();
+      const isWeekend=dow===0||dow===6;
+      const cls=`day-cell date-row${day.om?' other-month':''}${isToday?' today':''}${isWeekend&&!day.om?' weekend':''}`;
       const num=isToday?`<span class="day-num today-num">${day.d}</span>`:`<span class="day-num">${day.d}</span>`;
       html+=`<div class="${cls}">${num}</div>`;
     });
@@ -781,7 +817,9 @@ function renderMonth() {
       html+=`<div class="row-label" style="background:var(--grzesiek);color:#fff;font-size:0.55rem;writing-mode:vertical-rl;transform:rotate(180deg);display:flex;align-items:center;justify-content:center;position:sticky;left:0;z-index:4;min-height:40px">Wszyscy</div>`;
       wd.forEach(day=>{
         const isToday=day.ds===todayStr;
-        const cls=`day-cell${day.om?' other-month':''}${isToday?' today':''}`;
+        const dow2=new Date(day.y,day.m,day.d).getDay();
+        const isWe=!day.om&&(dow2===0||dow2===6);
+        const cls=`day-cell${day.om?' other-month':''}${isToday?' today':''}${isWe?' weekend':''}`;
         const cellOccs=(idx[MEMBERS[0].id][day.ds]||[])
           .filter(o=>allMembersEvIds[day.ds].has(o.ev.id))
           .slice().sort((a,b)=>{
@@ -814,7 +852,9 @@ function renderMonth() {
       html+=`<div class="row-label ${mem.id}" style="position:sticky;left:0;z-index:4">${mem.label}</div>`;
       wd.forEach(day=>{
         const isToday=day.ds===todayStr;
-        const cls=`day-cell${day.om?' other-month':''}${isToday?' today':''}`;
+        const dow2=new Date(day.y,day.m,day.d).getDay();
+        const isWe=!day.om&&(dow2===0||dow2===6);
+        const cls=`day-cell${day.om?' other-month':''}${isToday?' today':''}${isWe?' weekend':''}`;
         const cellOccs=(idx[mem.id][day.ds]||[])
           .filter(o=>!allMembersEvIds[day.ds].has(o.ev.id))
           .slice().sort((a,b)=>{
@@ -896,7 +936,7 @@ function renderWeek() {
   const visibleDays = Array.from({length:DAYS},(_,i)=>{
     const dt=addDays(day0,i);
     const dow=(dt.getDay()+6)%7; // 0=Pn...6=Nd
-    return {dt, ds:toDateStr(dt), isToday:toDateStr(dt)===todayStr, idx:dow};
+    return {dt, ds:toDateStr(dt), isToday:toDateStr(dt)===todayStr, idx:dow, isWeekend:[0,6].includes(dt.getDay())};
   });
 
   const idx = buildIdx(getOccurrencesInRange(ds0,ds1), ds0, ds1);
@@ -977,7 +1017,7 @@ function renderWeek() {
   WEEK_HOURS.forEach(hour=>{
     html += `<div style="display:flex;height:${SLOT_H}px;border-bottom:1px solid var(--border)">`;
     visibleDays.forEach(d=>{
-      const bg=d.isToday?'background:#fffdf4;':'';
+      const bg=d.isToday?'background:#fffdf4;':d.isWeekend?'background:var(--weekend-bg);':'';
       html += `<div style="flex:1;min-width:0;display:flex;border-left:2px solid #8a8fa8;${bg}">`;
       MEMBERS.forEach(mem=>{
         html += `<div style="flex:1;min-width:0;border-right:1px solid var(--border);cursor:pointer" onclick="openNew('${d.ds}','${mem.id}',${hour})"></div>`;
@@ -1176,11 +1216,12 @@ function renderDay(){
   stickyHtml+=`</div>`;
   document.getElementById('day-sticky').innerHTML=stickyHtml;
 
+  const isWeekend = [0,6].includes(currentDay.getDay());
   // ── SCROLLABLE GRID (no TIME_W) ──
   let html = `<div style="width:100%;position:relative">`;
   html+=`<div style="display:flex;flex-direction:column">`;
   WEEK_HOURS.forEach(hour=>{
-    const bg = isToday ? 'background:#fffdf4;' : '';
+    const bg = isToday ? 'background:#fffdf4;' : isWeekend ? 'background:var(--weekend-bg);' : '';
     html+=`<div style="display:flex;height:${SLOT_H}px;border-bottom:1px solid var(--border)">`;
     MEMBERS.forEach(mem=>{
       html+=`<div style="flex:1;min-width:0;border-left:1px solid var(--border);${bg}cursor:pointer" onclick="openNew('${ds}','${mem.id}',${hour})"></div>`;
@@ -1279,7 +1320,123 @@ function renderDay(){
   const dayScroll = document.getElementById('day-scroll');
   const dayTimes  = document.getElementById('day-times');
   dayScroll.onscroll = function(){ dayTimes.scrollTop = dayScroll.scrollTop; };
+
+  // ── CURRENT TIME INDICATOR ──
+  function updateTimeIndicator(){
+    const existing = document.getElementById('day-time-indicator');
+    if(existing) existing.remove();
+    if(!isToday) return;
+    const now = new Date();
+    const h = now.getHours(), m = now.getMinutes();
+    if(h < 7 || h > 22) return;
+    const topPx = (h - 7 + m/60) * SLOT_H;
+    const container = document.querySelector('#day-content div[style*="position:relative"]');
+    if(!container) return;
+    const line = document.createElement('div');
+    line.id = 'day-time-indicator';
+    line.style.cssText = `position:absolute;top:${topPx}px;left:0;right:0;height:2px;background:#e07a5f;z-index:10;pointer-events:none`;
+    const dot = document.createElement('div');
+    dot.style.cssText = `position:absolute;left:-4px;top:-4px;width:10px;height:10px;border-radius:50%;background:#e07a5f`;
+    line.appendChild(dot);
+    container.appendChild(line);
+  }
+
+  updateTimeIndicator();
+  clearInterval(window._timeIndicatorTimer);
+  window._timeIndicatorTimer = setInterval(updateTimeIndicator, 60000);
+
+  // Auto-scroll to current time
+  if(isToday){
+    const now = new Date();
+    const scrollTo = Math.max(0, (now.getHours() - 7 - 1) * SLOT_H);
+    requestAnimationFrame(()=>{ dayScroll.scrollTop = scrollTo; });
+  }
 }
+
+/* ===== SEARCH ===== */
+function openSearch(){
+  const ov=document.getElementById('search-overlay');
+  ov.style.display='block';
+  const inp=document.getElementById('search-input');
+  inp.value='';
+  document.getElementById('search-results').innerHTML='';
+  requestAnimationFrame(()=>inp.focus());
+}
+
+function closeSearch(){
+  document.getElementById('search-overlay').style.display='none';
+}
+
+function doSearch(q){
+  const res=document.getElementById('search-results');
+  q=q.trim().toLowerCase();
+  if(!q){ res.innerHTML=''; return; }
+
+  // Collect unique events matching query
+  const seen=new Set();
+  const matches=[];
+  events.forEach(ev=>{
+    if(seen.has(ev.id)) return;
+    const hay=((ev.title||'')+' '+(ev.note||'')+' '+(ev.icon||'')).toLowerCase();
+    if(!hay.includes(q)) return;
+    seen.add(ev.id);
+    matches.push(ev);
+  });
+
+  if(!matches.length){
+    res.innerHTML=`<div class="search-empty">Brak wyników dla „${q}"</div>`;
+    return;
+  }
+
+  // Sort by dateFrom ascending
+  matches.sort((a,b)=>a.dateFrom.localeCompare(b.dateFrom));
+
+  const personColors={gosia:'var(--gosia)',grzesiek:'var(--grzesiek)',adas:'var(--adas)',tymek:'var(--tymek)'};
+  const personNames={gosia:'Gosia',grzesiek:'Grzesiek',adas:'Adaś',tymek:'Tymek'};
+  const monthsShort=['sty','lut','mar','kwi','maj','cze','lip','sie','wrz','paź','lis','gru'];
+
+  res.innerHTML = matches.slice(0,40).map(ev=>{
+    const [y,m,d]=ev.dateFrom.split('-').map(Number);
+    const dateLabel=`${d} ${monthsShort[m-1]} ${y}`;
+    const timeLabel=ev.time?` · ${ev.time}${ev.timeEnd?'–'+ev.timeEnd:''}`:'';
+    const persons=Array.isArray(ev.persons)?ev.persons:[ev.persons||'gosia'];
+    const dotColor=persons.length===1?personColors[persons[0]]:'var(--grzesiek)';
+    const whoLabel=persons.map(p=>personNames[p]||p).join(', ');
+    return `<div class="search-result" onclick="searchGoTo('${ev.id}','${ev.dateFrom}')">
+      <div class="sr-dot" style="background:${dotColor}"></div>
+      <div class="sr-body">
+        <div class="sr-title">${ev.icon?ev.icon+' ':''}${ev.title}</div>
+        <div class="sr-meta">${dateLabel}${timeLabel} · ${whoLabel}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function searchGoTo(evId, ds){
+  closeSearch();
+  // Navigate to day view on that date
+  const [y,m,d]=ds.split('-').map(Number);
+  currentDay=new Date(y,m-1,d);
+  setView('day');
+  // After render, highlight the event element
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      const els=document.querySelectorAll('#day-content .week-event');
+      els.forEach(el=>{
+        if(el.onclick && el.onclick.toString().includes(evId)){
+          el.classList.add('ev-highlight');
+          el.scrollIntoView({block:'center',behavior:'smooth'});
+          setTimeout(()=>el.classList.remove('ev-highlight'),1500);
+        }
+      });
+    });
+  });
+}
+
+// Close on Escape
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && document.getElementById('search-overlay').style.display!=='none') closeSearch();
+});
 
 /* ===== VIEW CONTROL ===== */
 function setView(v){
