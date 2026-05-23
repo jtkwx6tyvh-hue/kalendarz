@@ -1123,10 +1123,45 @@ function renderWeek() {
         });
       });
     });
+
+    // Time indicator for today's column
+    const todayDayIdx = visibleDays.findIndex(d=>d.isToday);
+    if(todayDayIdx !== -1){
+      const now = new Date();
+      const h = now.getHours(), m = now.getMinutes();
+      if(h >= 7 && h <= 22){
+        const topPx = (h - 7 + m/60) * SLOT_H;
+        const line = document.createElement('div');
+        line.id = 'week-time-indicator';
+        line.style.cssText = `position:absolute;top:${topPx}px;left:${todayDayIdx*realDayW}px;width:${realDayW}px;height:2px;background:#e07a5f;z-index:10;pointer-events:none`;
+        const dot = document.createElement('div');
+        dot.style.cssText = `position:absolute;left:-4px;top:-4px;width:10px;height:10px;border-radius:50%;background:#e07a5f`;
+        line.appendChild(dot);
+        evContainer.appendChild(line);
+      }
+    }
   });
+
   const weekScroll=document.getElementById('week-scroll');
   const weekTimes =document.getElementById('week-times');
   weekScroll.onscroll=function(){ weekTimes.scrollTop=weekScroll.scrollTop; };
+
+  // Auto-scroll to current time if today is visible
+  if(visibleDays.some(d=>d.isToday)){
+    const now = new Date();
+    const scrollTo = Math.max(0, (now.getHours() - 7 - 1) * SLOT_H);
+    requestAnimationFrame(()=>{ weekScroll.scrollTop = scrollTo; });
+  }
+
+  // Refresh indicator every minute
+  clearInterval(window._weekTimeIndicatorTimer);
+  window._weekTimeIndicatorTimer = setInterval(()=>{
+    const existing = document.getElementById('week-time-indicator');
+    if(!existing) return;
+    const now = new Date();
+    const h = now.getHours(), m = now.getMinutes();
+    if(h >= 7 && h <= 22) existing.style.top = ((h-7+m/60)*SLOT_H)+'px';
+  }, 60000);
 }
 
 function slotsHtml2(){} // placeholder
