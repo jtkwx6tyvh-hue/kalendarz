@@ -884,7 +884,53 @@ function renderMonth() {
   document.getElementById('cal-grid').innerHTML=html;
 }
 
-/* ===== WEEK RENDER ===== */
+/* ===== WEATHER ===== */
+const WEATHER_LAT = 52.2297;
+const WEATHER_LON = 21.0122;
+let weatherCache = {}; // ds -> {icon, tempMax, tempMin}
+let weatherFetched = false;
+
+const WMO_ICON = {
+  0:'☀️', 1:'🌤️', 2:'⛅', 3:'☁️',
+  45:'🌫️', 48:'🌫️',
+  51:'🌦️', 53:'🌦️', 55:'🌧️',
+  61:'🌧️', 63:'🌧️', 65:'🌧️',
+  71:'🌨️', 73:'🌨️', 75:'❄️',
+  77:'❄️', 80:'🌦️', 81:'🌧️', 82:'⛈️',
+  85:'🌨️', 86:'❄️',
+  95:'⛈️', 96:'⛈️', 99:'⛈️'
+};
+
+async function fetchWeather() {
+  if(weatherFetched) return;
+  weatherFetched = true;
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LAT}&longitude=${WEATHER_LON}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=Europe%2FWarsaw&forecast_days=14`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const {time, weathercode, temperature_2m_max, temperature_2m_min} = data.daily;
+    time.forEach((ds, i) => {
+      weatherCache[ds] = {
+        icon: WMO_ICON[weathercode[i]] || '🌡️',
+        max:  Math.round(temperature_2m_max[i]),
+        min:  Math.round(temperature_2m_min[i])
+      };
+    });
+    // Re-render strips with weather data
+    if(currentView==='week') renderWeekStrip();
+    if(currentView==='day')  renderDayWeekStrip();
+  } catch(e) {
+    console.warn('Weather fetch failed', e);
+  }
+}
+
+function weatherHtml(ds) {
+  const w = weatherCache[ds];
+  if(!w) return '';
+  return `<span style="font-size:0.75rem;line-height:1">${w.icon}</span><span style="font-size:0.55rem;color:var(--muted);line-height:1">${w.max}°</span>`;
+}
+
+
 const WEEK_HOURS = Array.from({length:16},(_,i)=>i+7); // 7–22
 const SLOT_H = 52; // px per hour slot
 const TIME_W = 46; // px for time label column
@@ -906,13 +952,13 @@ function renderWeekStrip() {
     html += `<div class="dws-cell${isActive}${isToday}" onclick="jumpToWeek('${ds}')">`;
     html += `<span class="dws-name">${name}</span>`;
     html += `<span class="dws-num">${num}</span>`;
+    html += weatherHtml(ds);
     html += `</div>`;
   }
   document.getElementById('week-week-strip').innerHTML = html;
 }
 
 function jumpToWeek(ds){
-  const [y,m,d] = ds.split('-').map(Number);
   currentWeekMonday = new Date(y, m-1, d);
   renderWeek();
 }
@@ -1179,6 +1225,7 @@ function renderDayWeekStrip() {
     html += `<div class="dws-cell${isActive}${isToday}" onclick="jumpToDay('${ds}')">`;
     html += `<span class="dws-name">${name}</span>`;
     html += `<span class="dws-num">${num}</span>`;
+    html += weatherHtml(ds);
     html += `</div>`;
   }
   document.getElementById('day-week-strip').innerHTML = html;
@@ -1876,7 +1923,8 @@ document.addEventListener('keydown',e=>{
 
 
   document.getElementById('app').classList.add('visible');
-  initFirebase(); // loads events from Firebase + sets up real-time listener
+  initFirebase();
+  fetchWeather();
 })();
 </script>
 </body>
