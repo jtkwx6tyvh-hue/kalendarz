@@ -988,6 +988,7 @@ function renderWeekStrip() {
 }
 
 function jumpToWeek(ds){
+  const [y,m,d] = ds.split('-').map(Number);
   currentWeekMonday = new Date(y, m-1, d);
   renderWeek();
 }
